@@ -28,5 +28,13 @@ services:
     ports:
       - "8080:8080"
 
+  frontend:
+    build:
+      context: ./pms-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
 volumes:
   postgres-data:
