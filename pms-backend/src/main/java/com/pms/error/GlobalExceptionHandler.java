@@ -2,6 +2,8 @@ package com.pms.error;
 
 import static java.util.Objects.isNull;
 
+import com.pms.parking.core.UnsettledSessionException;
+import com.pms.parking.response.SessionConflictResponse;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.stream.Collectors;
@@ -50,6 +52,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleConflict(IllegalStateException ex) {
         return resolveOrFallback(ex, CONFLICT_CODE);
+    }
+
+    @ExceptionHandler(UnsettledSessionException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public SessionConflictResponse handleUnsettledSession(UnsettledSessionException ex) {
+        ErrorResponse error = resolveOrFallback(ex, CONFLICT_CODE);
+
+        return new SessionConflictResponse(error.code(), error.message(), ex.getBlockingSessionId());
     }
 
     @ExceptionHandler(EntityNotFoundException.class)
