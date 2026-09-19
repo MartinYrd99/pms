@@ -9,6 +9,10 @@ import com.pms.zone.core.Zone;
 import com.pms.zone.core.ZoneRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Clock;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -69,5 +73,24 @@ public class ParkingSessionService {
 
     private void rejectAsUnsettled(ParkingSession blockingSession) {
         throw new UnsettledSessionException(UNSETTLED_SESSION_CODE, blockingSession.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<StartedSession> listActive(Long userId) {
+        List<ParkingSession> sessions = parkingSessionRepository.findByUserIdAndEndedAtIsNullOrderByStartedAtDesc(userId);
+
+        Map<Long, Vehicle> vehiclesById = vehicleRepository
+                .findAllById(sessions.stream().map(ParkingSession::getVehicleId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(Vehicle::getId, Function.identity()));
+
+        Map<Long, Zone> zonesById = zoneRepository
+                .findAllById(sessions.stream().map(ParkingSession::getZoneId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(Zone::getId, Function.identity()));
+
+        return sessions.stream()
+                .map(session -> new StartedSession(session, vehiclesById.get(session.getVehicleId()), zonesById.get(session.getZoneId())))
+                .toList();
     }
 }

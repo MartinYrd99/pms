@@ -7,9 +7,11 @@ import com.pms.parking.response.ParkingSessionResponse;
 import com.pms.parking.response.ParkingSessionVehicle;
 import com.pms.parking.response.ParkingSessionZone;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,6 +30,12 @@ public class ParkingSessionController {
         StartedSession started = parkingSessionService.start(userId, request.vehicleId(), request.zoneId());
 
         return toResponse(started);
+    }
+
+    @GetMapping("/active")
+    @ResponseStatus(HttpStatus.OK)
+    public List<ParkingSessionResponse> active(@AuthenticationPrincipal Long userId) {
+        return parkingSessionService.listActive(userId).stream().map(this::toResponse).toList();
     }
 
     private ParkingSessionResponse toResponse(StartedSession started) {
