@@ -8,6 +8,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
@@ -62,5 +63,23 @@ public class AuthService {
         String refreshToken = refreshTokenService.issue(user);
 
         return new AuthTokens(accessToken, refreshToken);
+    }
+
+    /**
+     * Rotation: the presented refresh token is revoked and a brand-new access/refresh pair is
+     * issued in the same transaction, so a token is never both revoked and un-replaced.
+     */
+    @Transactional
+    public AuthTokens refresh(String rawRefreshToken) {
+        User user = refreshTokenService.rotate(rawRefreshToken);
+        String accessToken = jwtService.generateAccessToken(user);
+        String refreshToken = refreshTokenService.issue(user);
+
+        return new AuthTokens(accessToken, refreshToken);
+    }
+
+    @Transactional
+    public void logout(String rawRefreshToken) {
+        refreshTokenService.revoke(rawRefreshToken);
     }
 }

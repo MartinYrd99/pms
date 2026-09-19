@@ -9,7 +9,9 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Issues opaque refresh tokens. The raw value is handed to the client once and never stored; only
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class RefreshTokenService {
     public static final Duration REFRESH_TOKEN_TTL = Duration.ofHours(48);
 
@@ -37,6 +40,33 @@ public class RefreshTokenService {
         refreshTokenRepository.save(refreshToken);
 
         return rawToken;
+    }
+
+    /**
+     * Rotates a refresh token: the presented one is revoked through a guarded update, so that two
+     * concurrent presentations of the same token cannot both succeed — only the request that
+     * claims the row (zero rows updated means someone else already did, or the token was unknown
+     * or expired) learns who it belonged to.
+     */
+    public User rotate(String rawToken) {
+        String tokenHash = hash(rawToken);
+        int claimed = refreshTokenRepository.revokeIfValid(tokenHash, Instant.now());
+
+        if (claimed == 0) {
+            throw new BadCredentialsException("Invalid or expired refresh token");
+        }
+
+        return refreshTokenRepository.findByTokenHashFetchUser(tokenHash)
+                .orElseThrow(() -> new IllegalStateException("Refresh token vanished after being claimed"))
+                .getUser();
+    }
+
+    /**
+     * Revokes a token if it is still valid; an already-invalid token is left untouched and no
+     * error surfaces, so logout never reveals whether the presented token was valid.
+     */
+    public void revoke(String rawToken) {
+        refreshTokenRepository.revokeIfValid(hash(rawToken), Instant.now());
     }
 
     private String generateRawToken() {

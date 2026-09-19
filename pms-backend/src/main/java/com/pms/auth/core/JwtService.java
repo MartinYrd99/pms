@@ -2,6 +2,7 @@ package com.pms.auth.core;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -24,6 +25,7 @@ public class JwtService {
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .subject(user.getId().toString())
+                .id(UUID.randomUUID().toString())
                 .issuedAt(issuedAt)
                 .expiresAt(issuedAt.plus(ACCESS_TOKEN_TTL))
                 .build();

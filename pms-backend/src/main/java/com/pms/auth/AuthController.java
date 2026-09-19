@@ -4,6 +4,7 @@ import com.pms.auth.core.AuthService;
 import com.pms.auth.core.AuthTokens;
 import com.pms.auth.core.User;
 import com.pms.auth.request.LoginRequest;
+import com.pms.auth.request.RefreshTokenRequest;
 import com.pms.auth.request.RegisterRequest;
 import com.pms.auth.response.LoginResponse;
 import com.pms.auth.response.RegisterResponse;
@@ -36,5 +37,19 @@ public class AuthController {
         AuthTokens tokens = authService.login(request.username(), request.password());
 
         return new LoginResponse(tokens.accessToken(), tokens.refreshToken());
+    }
+
+    @PostMapping("/refresh")
+    @ResponseStatus(HttpStatus.OK)
+    public LoginResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        AuthTokens tokens = authService.refresh(request.refreshToken());
+
+        return new LoginResponse(tokens.accessToken(), tokens.refreshToken());
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@Valid @RequestBody RefreshTokenRequest request) {
+        authService.logout(request.refreshToken());
     }
 }
