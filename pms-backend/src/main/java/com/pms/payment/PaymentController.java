@@ -1,0 +1,33 @@
+package com.pms.payment;
+
+import com.pms.payment.core.PaymentOutcome;
+import com.pms.payment.core.PaymentService;
+import com.pms.payment.response.PaymentResponse;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/parking-sessions")
+@RequiredArgsConstructor
+public class PaymentController {
+    private final PaymentService paymentService;
+
+    /**
+     * Idempotent: a session freshly asked to pay answers 201 with a new PENDING payment; a session
+     * that already has a live payment answers 200 with that same payment, never a second row.
+     */
+    @PostMapping("/{sessionId}/payment")
+    public PaymentResponse pay(@AuthenticationPrincipal Long userId, @PathVariable Long sessionId, HttpServletResponse response) {
+        PaymentOutcome outcome = paymentService.payFor(userId, sessionId);
+
+        response.setStatus((outcome.created() ? HttpStatus.CREATED : HttpStatus.OK).value());
+
+        return PaymentResponse.from(outcome.payment());
+    }
+}
