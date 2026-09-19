@@ -1,12 +1,23 @@
 package com.pms.parking.response;
 
+import com.pms.parking.core.PaymentStatus;
 import com.pms.parking.core.StartedSession;
 import java.math.BigDecimal;
 import java.time.Instant;
 
 public record ParkingSessionResponse(
-        Long id, ParkingSessionVehicle vehicle, ParkingSessionZone zone, Instant startedAt, Instant endedAt, BigDecimal amount) {
+        Long id,
+        ParkingSessionVehicle vehicle,
+        ParkingSessionZone zone,
+        Instant startedAt,
+        Instant endedAt,
+        BigDecimal amount,
+        PaymentStatus paymentStatus) {
 
+    /**
+     * The payments feature does not exist yet, so every session is reported as never paid until
+     * that feature lands and starts populating.
+     */
     public static ParkingSessionResponse from(StartedSession started) {
         return new ParkingSessionResponse(
                 started.session().getId(),
@@ -18,6 +29,7 @@ public record ParkingSessionResponse(
                 new ParkingSessionZone(started.zone().getId(), started.zone().getName(), started.zone().getCity()),
                 started.session().getStartedAt(),
                 started.session().getEndedAt(),
-                started.session().getAmount());
+                started.session().getAmount(),
+                null);
     }
 }

@@ -44,4 +44,12 @@ public class ParkingSessionController {
 
         return ParkingSessionResponse.from(ended);
     }
+
+    @GetMapping("/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public ParkingSessionResponse get(@AuthenticationPrincipal Long userId, @PathVariable Long id) {
+        StartedSession session = parkingSessionService.get(userId, id);
+
+        return ParkingSessionResponse.from(session);
+    }
 }

@@ -102,6 +102,11 @@ public class ParkingSessionService {
         return loadBundle(session.setEndedAt(endedAt).setAmount(amount));
     }
 
+    @Transactional(readOnly = true)
+    public StartedSession get(Long userId, Long sessionId) {
+        return loadBundle(loadOwnedSession(userId, sessionId));
+    }
+
     private ParkingSession loadOwnedSession(Long userId, Long sessionId) {
         ParkingSession session = loadSession(sessionId);
 
