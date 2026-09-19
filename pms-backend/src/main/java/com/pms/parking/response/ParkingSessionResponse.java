@@ -14,10 +14,6 @@ public record ParkingSessionResponse(
         BigDecimal amount,
         PaymentStatus paymentStatus) {
 
-    /**
-     * The payments feature does not exist yet, so every session is reported as never paid until
-     * that feature lands and starts populating.
-     */
     public static ParkingSessionResponse from(StartedSession started) {
         return new ParkingSessionResponse(
                 started.session().getId(),
@@ -30,6 +26,6 @@ public record ParkingSessionResponse(
                 started.session().getStartedAt(),
                 started.session().getEndedAt(),
                 started.session().getAmount(),
-                null);
+                started.paymentStatus());
     }
 }

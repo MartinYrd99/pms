@@ -7,9 +7,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -29,5 +31,15 @@ public class PaymentController {
         response.setStatus((outcome.created() ? HttpStatus.CREATED : HttpStatus.OK).value());
 
         return PaymentResponse.from(outcome.payment());
+    }
+
+    /**
+     * Shows the payment the driver is watching: the live one if a payment is in flight, otherwise
+     * the most recent one, so a past FAILED payment surfaces and the UI can offer a retry.
+     */
+    @GetMapping("/{sessionId}/payment")
+    @ResponseStatus(HttpStatus.OK)
+    public PaymentResponse getPayment(@AuthenticationPrincipal Long userId, @PathVariable Long sessionId) {
+        return PaymentResponse.from(paymentService.getPaymentForSession(userId, sessionId));
     }
 }

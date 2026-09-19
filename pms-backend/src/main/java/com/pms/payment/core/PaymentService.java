@@ -8,8 +8,12 @@ import com.pms.parking.core.ParkingSessionRepository;
 import com.pms.parking.core.PaymentStatus;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Clock;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,6 +29,7 @@ public class PaymentService {
     private static final String SESSION_NOT_FOUND_CODE = "validation.parking-session.not-found";
     private static final String SESSION_NOT_OWNED_CODE = "validation.parking-session.not-owned";
     private static final String SESSION_ACTIVE_CODE = "validation.parking-session.active";
+    private static final String PAYMENT_NOT_FOUND_CODE = "validation.payment.not-found";
 
     private final ParkingSessionRepository parkingSessionRepository;
     private final PaymentRepository paymentRepository;
@@ -61,6 +66,51 @@ public class PaymentService {
                     paymentRepository.findBySessionIdAndStatusIn(sessionId, LIVE_STATUSES).orElseThrow(() -> e), false
             );
         }
+    }
+
+    /**
+     * The payment a driver watches for a session: the live one (PENDING/COMPLETED) if an attempt
+     * is in flight, otherwise the most recent attempt — which is how a FAILED payment surfaces and
+     * the UI can offer a retry. A session nobody ever tried to pay has no payment row at all.
+     */
+    @Transactional(readOnly = true)
+    public Payment getPaymentForSession(Long userId, Long sessionId) {
+        ParkingSession session = parkingSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new EntityNotFoundException(SESSION_NOT_FOUND_CODE));
+
+        if (!session.getUserId().equals(userId)) {
+            throw new ForbiddenException(SESSION_NOT_OWNED_CODE);
+        }
+
+        return selectPayment(sessionId).orElseThrow(() -> new EntityNotFoundException(PAYMENT_NOT_FOUND_CODE));
+    }
+
+    /**
+     * Bulk form of the same live-else-most-recent rule, used to enrich a page of sessions with a
+     * single query instead of one payment lookup per row.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, PaymentStatus> statusesBySessionId(Collection<Long> sessionIds) {
+        if (sessionIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return paymentRepository.findBySessionIdIn(sessionIds).stream()
+                .collect(Collectors.groupingBy(Payment::getSessionId))
+                .entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> selectAmong(entry.getValue()).getStatus()));
+    }
+
+    private Optional<Payment> selectPayment(Long sessionId) {
+        return paymentRepository.findBySessionIdAndStatusIn(sessionId, LIVE_STATUSES)
+                .or(() -> paymentRepository.findFirstBySessionIdOrderByCreatedAtDesc(sessionId));
+    }
+
+    private Payment selectAmong(List<Payment> payments) {
+        return payments.stream()
+                .filter(payment -> LIVE_STATUSES.contains(payment.getStatus()))
+                .findFirst()
+                .orElseGet(() -> payments.stream().max(Comparator.comparing(Payment::getCreatedAt)).orElseThrow());
     }
 
     private ParkingSession loadOwnedEndedSession(Long userId, Long sessionId) {

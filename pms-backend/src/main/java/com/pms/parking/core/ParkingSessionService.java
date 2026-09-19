@@ -1,6 +1,7 @@
 package com.pms.parking.core;
 
 import com.pms.error.ForbiddenException;
+import com.pms.payment.core.PaymentService;
 import com.pms.vehicle.core.Vehicle;
 import com.pms.vehicle.core.VehicleRepository;
 import com.pms.zone.core.Tariff;
@@ -44,6 +45,7 @@ public class ParkingSessionService {
     private final TariffRepository tariffRepository;
     private final ParkingSessionRepository parkingSessionRepository;
     private final PricingService pricingService;
+    private final PaymentService paymentService;
     private final Clock clock;
 
     public StartedSession start(Long userId, Long vehicleId, Long zoneId) {
@@ -79,7 +81,7 @@ public class ParkingSessionService {
             throw new UnsettledSessionException(UNSETTLED_SESSION_CODE, null);
         }
 
-        return new StartedSession(session, vehicle, zone);
+        return new StartedSession(session, vehicle, zone, null);
     }
 
     private void rejectAsUnsettled(ParkingSession blockingSession) {
@@ -100,7 +102,10 @@ public class ParkingSessionService {
         int updated = parkingSessionRepository.endIfActive(sessionId, endedAt, amount);
 
         if (updated == 0) {
-            throw new SessionAlreadyEndedException(SESSION_ALREADY_ENDED_CODE, loadBundle(loadSession(sessionId)));
+            ParkingSession alreadyEnded = loadSession(sessionId);
+            PaymentStatus paymentStatus = paymentService.statusesBySessionId(List.of(sessionId)).get(sessionId);
+
+            throw new SessionAlreadyEndedException(SESSION_ALREADY_ENDED_CODE, loadBundle(alreadyEnded, paymentStatus));
         }
 
         return loadBundle(session.setEndedAt(endedAt).setAmount(amount));
@@ -108,7 +113,10 @@ public class ParkingSessionService {
 
     @Transactional(readOnly = true)
     public StartedSession get(Long userId, Long sessionId) {
-        return loadBundle(loadOwnedSession(userId, sessionId));
+        ParkingSession session = loadOwnedSession(userId, sessionId);
+        PaymentStatus paymentStatus = paymentService.statusesBySessionId(List.of(sessionId)).get(sessionId);
+
+        return loadBundle(session, paymentStatus);
     }
 
     private ParkingSession loadOwnedSession(Long userId, Long sessionId) {
@@ -127,12 +135,16 @@ public class ParkingSessionService {
     }
 
     private StartedSession loadBundle(ParkingSession session) {
+        return loadBundle(session, null);
+    }
+
+    private StartedSession loadBundle(ParkingSession session, PaymentStatus paymentStatus) {
         Vehicle vehicle = vehicleRepository.findById(session.getVehicleId())
                 .orElseThrow(() -> new EntityNotFoundException(VEHICLE_NOT_FOUND_CODE));
         Zone zone = zoneRepository.findById(session.getZoneId())
                 .orElseThrow(() -> new EntityNotFoundException(ZONE_NOT_FOUND_CODE));
 
-        return new StartedSession(session, vehicle, zone);
+        return new StartedSession(session, vehicle, zone, paymentStatus);
     }
 
     @Transactional(readOnly = true)
@@ -151,10 +163,17 @@ public class ParkingSessionService {
         Page<ParkingSession> sessions =
                 parkingSessionRepository.findByUserIdOrderByStartedAtDesc(userId, PageRequest.of(clampedPage, clampedSize));
 
-        return new PageImpl<>(bundle(sessions.getContent()), sessions.getPageable(), sessions.getTotalElements());
+        Map<Long, PaymentStatus> paymentStatuses =
+                paymentService.statusesBySessionId(sessions.getContent().stream().map(ParkingSession::getId).toList());
+
+        return new PageImpl<>(bundle(sessions.getContent(), paymentStatuses), sessions.getPageable(), sessions.getTotalElements());
     }
 
     private List<StartedSession> bundle(List<ParkingSession> sessions) {
+        return bundle(sessions, Map.of());
+    }
+
+    private List<StartedSession> bundle(List<ParkingSession> sessions, Map<Long, PaymentStatus> paymentStatuses) {
         Map<Long, Vehicle> vehiclesById = vehicleRepository
                 .findAllById(sessions.stream().map(ParkingSession::getVehicleId).distinct().toList())
                 .stream()
@@ -166,7 +185,11 @@ public class ParkingSessionService {
                 .collect(Collectors.toMap(Zone::getId, Function.identity()));
 
         return sessions.stream()
-                .map(session -> new StartedSession(session, vehiclesById.get(session.getVehicleId()), zonesById.get(session.getZoneId())))
+                .map(session -> new StartedSession(
+                        session,
+                        vehiclesById.get(session.getVehicleId()),
+                        zonesById.get(session.getZoneId()),
+                        paymentStatuses.get(session.getId())))
                 .toList();
     }
 }

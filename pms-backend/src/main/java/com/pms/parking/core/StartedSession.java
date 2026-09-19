@@ -4,9 +4,7 @@ import com.pms.vehicle.core.Vehicle;
 import com.pms.zone.core.Zone;
 
 /**
- * A parking session bundled with its vehicle and zone already loaded — avoids the controller
- * re-querying rows the service just fetched. Used for any lifecycle stage (started, active,
- * ended), not only the initial start.
+ * A parking session bundled with its vehicle, zone and payment status already loaded
  */
-public record StartedSession(ParkingSession session, Vehicle vehicle, Zone zone) {
+public record StartedSession(ParkingSession session, Vehicle vehicle, Zone zone, PaymentStatus paymentStatus) {
 }
