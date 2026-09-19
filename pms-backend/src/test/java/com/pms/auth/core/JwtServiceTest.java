@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -33,7 +34,7 @@ class JwtServiceTest {
     void issuedAccessTokenExpiresExactlyTenMinutesAfterIssueAndVerifiesWithConfiguredKey() {
         JwtEncoder jwtEncoder = NimbusJwtEncoder.withSecretKey(SIGNING_KEY).algorithm(MacAlgorithm.HS256).build();
         JwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(SIGNING_KEY).macAlgorithm(MacAlgorithm.HS256).build();
-        JwtService jwtService = new JwtService(jwtEncoder);
+        JwtService jwtService = new JwtService(jwtEncoder, Clock.systemUTC());
         User user = new User().setId(42L).setUsername("driver-42");
 
         String token = jwtService.generateAccessToken(user);
@@ -47,7 +48,7 @@ class JwtServiceTest {
     @Test
     void tokenSignedWithADifferentKeyFailsVerification() {
         JwtEncoder jwtEncoder = NimbusJwtEncoder.withSecretKey(SIGNING_KEY).algorithm(MacAlgorithm.HS256).build();
-        JwtService jwtService = new JwtService(jwtEncoder);
+        JwtService jwtService = new JwtService(jwtEncoder, Clock.systemUTC());
         User user = new User().setId(7L).setUsername("driver-7");
         String token = jwtService.generateAccessToken(user);
 

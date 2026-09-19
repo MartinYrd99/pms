@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -27,11 +28,12 @@ public class RefreshTokenService {
     private static final String HASH_ALGORITHM = "SHA-256";
 
     private final RefreshTokenRepository refreshTokenRepository;
+    private final Clock clock;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public String issue(User user) {
         String rawToken = generateRawToken();
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
 
         RefreshToken refreshToken = new RefreshToken()
                 .setUser(user)
@@ -50,7 +52,7 @@ public class RefreshTokenService {
      */
     public User rotate(String rawToken) {
         String tokenHash = hash(rawToken);
-        int claimed = refreshTokenRepository.revokeIfValid(tokenHash, Instant.now());
+        int claimed = refreshTokenRepository.revokeIfValid(tokenHash, Instant.now(clock));
 
         if (claimed == 0) {
             throw new BadCredentialsException("Invalid or expired refresh token");
@@ -66,7 +68,7 @@ public class RefreshTokenService {
      * error surfaces, so logout never reveals whether the presented token was valid.
      */
     public void revoke(String rawToken) {
-        refreshTokenRepository.revokeIfValid(hash(rawToken), Instant.now());
+        refreshTokenRepository.revokeIfValid(hash(rawToken), Instant.now(clock));
     }
 
     private String generateRawToken() {

@@ -1,5 +1,6 @@
 package com.pms.auth.core;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
@@ -19,9 +20,10 @@ public class JwtService {
     public static final Duration ACCESS_TOKEN_TTL = Duration.ofMinutes(10);
 
     private final JwtEncoder jwtEncoder;
+    private final Clock clock;
 
     public String generateAccessToken(User user) {
-        Instant issuedAt = Instant.now();
+        Instant issuedAt = Instant.now(clock);
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .subject(user.getId().toString())
