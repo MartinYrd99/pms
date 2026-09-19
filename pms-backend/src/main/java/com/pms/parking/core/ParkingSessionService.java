@@ -17,6 +17,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional
 public class ParkingSessionService {
+    private static final int MAX_PAGE_SIZE = 100;
     private static final String VEHICLE_NOT_FOUND_CODE = "validation.vehicle.not-found";
     private static final String VEHICLE_NOT_OWNED_CODE = "validation.vehicle.not-owned";
     private static final String ZONE_NOT_FOUND_CODE = "validation.zone.not-found";
@@ -133,8 +137,24 @@ public class ParkingSessionService {
 
     @Transactional(readOnly = true)
     public List<StartedSession> listActive(Long userId) {
-        List<ParkingSession> sessions = parkingSessionRepository.findByUserIdAndEndedAtIsNullOrderByStartedAtDesc(userId);
+        return bundle(parkingSessionRepository.findByUserIdAndEndedAtIsNullOrderByStartedAtDesc(userId));
+    }
 
+    /**
+     * Offset-paginated history, newest first. The requested page size is capped so a client cannot ask for the whole table.
+     */
+    @Transactional(readOnly = true)
+    public Page<StartedSession> history(Long userId, int page, int size) {
+        int clampedPage = Math.max(page, 0);
+        int clampedSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+
+        Page<ParkingSession> sessions =
+                parkingSessionRepository.findByUserIdOrderByStartedAtDesc(userId, PageRequest.of(clampedPage, clampedSize));
+
+        return new PageImpl<>(bundle(sessions.getContent()), sessions.getPageable(), sessions.getTotalElements());
+    }
+
+    private List<StartedSession> bundle(List<ParkingSession> sessions) {
         Map<Long, Vehicle> vehiclesById = vehicleRepository
                 .findAllById(sessions.stream().map(ParkingSession::getVehicleId).distinct().toList())
                 .stream()

@@ -1,5 +1,6 @@
 package com.pms.parking;
 
+import com.pms.common.response.PageResponse;
 import com.pms.parking.core.ParkingSessionService;
 import com.pms.parking.core.StartedSession;
 import com.pms.parking.request.StartParkingSessionRequest;
@@ -7,6 +8,7 @@ import com.pms.parking.response.ParkingSessionResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -51,5 +54,16 @@ public class ParkingSessionController {
         StartedSession session = parkingSessionService.get(userId, id);
 
         return ParkingSessionResponse.from(session);
+    }
+
+    @GetMapping
+    @ResponseStatus(HttpStatus.OK)
+    public PageResponse<ParkingSessionResponse> history(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Page<StartedSession> sessions = parkingSessionService.history(userId, page, size);
+
+        return PageResponse.from(sessions.map(ParkingSessionResponse::from));
     }
 }
