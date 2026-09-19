@@ -50,6 +50,13 @@ class SecurityFilterChainTest extends AbstractPostgresIT {
     }
 
     @Test
+    void swaggerUiIsReachableWithoutATokenWhileAuthenticatedPathsStillReject() throws Exception {
+        mockMvc.perform(get("/swagger-ui.html")).andExpect(status().is3xxRedirection());
+
+        mockMvc.perform(get("/api/v1/vehicles")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void registerStaysReachableWithoutAToken() throws Exception {
         String username = "driver-" + UUID.randomUUID();
 
