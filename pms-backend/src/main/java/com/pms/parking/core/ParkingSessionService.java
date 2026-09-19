@@ -8,7 +8,9 @@ import com.pms.zone.core.TariffRepository;
 import com.pms.zone.core.Zone;
 import com.pms.zone.core.ZoneRepository;
 import jakarta.persistence.EntityNotFoundException;
+import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -28,11 +30,16 @@ public class ParkingSessionService {
     private static final String ZONE_INACTIVE_CODE = "validation.zone.inactive";
     private static final String ZONE_TARIFF_MISSING_CODE = "validation.zone.tariff-missing";
     private static final String UNSETTLED_SESSION_CODE = "validation.parking-session.unsettled-exists";
+    private static final String SESSION_NOT_FOUND_CODE = "validation.parking-session.not-found";
+    private static final String SESSION_NOT_OWNED_CODE = "validation.parking-session.not-owned";
+    private static final String SESSION_TARIFF_MISSING_CODE = "validation.parking-session.tariff-missing";
+    private static final String SESSION_ALREADY_ENDED_CODE = "validation.parking-session.already-ended";
 
     private final VehicleRepository vehicleRepository;
     private final ZoneRepository zoneRepository;
     private final TariffRepository tariffRepository;
     private final ParkingSessionRepository parkingSessionRepository;
+    private final PricingService pricingService;
     private final Clock clock;
 
     public StartedSession start(Long userId, Long vehicleId, Long zoneId) {
@@ -73,6 +80,50 @@ public class ParkingSessionService {
 
     private void rejectAsUnsettled(ParkingSession blockingSession) {
         throw new UnsettledSessionException(UNSETTLED_SESSION_CODE, blockingSession.getId());
+    }
+
+    /**
+     * Ends a session and fixes its amount.
+     */
+    public StartedSession end(Long userId, Long sessionId) {
+        ParkingSession session = loadOwnedSession(userId, sessionId);
+
+        Tariff tariff = tariffRepository.findById(session.getTariffId())
+                .orElseThrow(() -> new EntityNotFoundException(SESSION_TARIFF_MISSING_CODE));
+
+        Instant endedAt = clock.instant();
+        BigDecimal amount = pricingService.price(session.getStartedAt(), endedAt, tariff);
+        int updated = parkingSessionRepository.endIfActive(sessionId, endedAt, amount);
+
+        if (updated == 0) {
+            throw new SessionAlreadyEndedException(SESSION_ALREADY_ENDED_CODE, loadBundle(loadSession(sessionId)));
+        }
+
+        return loadBundle(session.setEndedAt(endedAt).setAmount(amount));
+    }
+
+    private ParkingSession loadOwnedSession(Long userId, Long sessionId) {
+        ParkingSession session = loadSession(sessionId);
+
+        if (!session.getUserId().equals(userId)) {
+            throw new ForbiddenException(SESSION_NOT_OWNED_CODE);
+        }
+
+        return session;
+    }
+
+    private ParkingSession loadSession(Long sessionId) {
+        return parkingSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new EntityNotFoundException(SESSION_NOT_FOUND_CODE));
+    }
+
+    private StartedSession loadBundle(ParkingSession session) {
+        Vehicle vehicle = vehicleRepository.findById(session.getVehicleId())
+                .orElseThrow(() -> new EntityNotFoundException(VEHICLE_NOT_FOUND_CODE));
+        Zone zone = zoneRepository.findById(session.getZoneId())
+                .orElseThrow(() -> new EntityNotFoundException(ZONE_NOT_FOUND_CODE));
+
+        return new StartedSession(session, vehicle, zone);
     }
 
     @Transactional(readOnly = true)

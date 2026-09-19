@@ -4,8 +4,9 @@ import com.pms.vehicle.core.Vehicle;
 import com.pms.zone.core.Zone;
 
 /**
- * The outcome of starting a session, bundled with the vehicle and zone already loaded to build it
- * — avoids the controller re-querying rows the service just fetched.
+ * A parking session bundled with its vehicle and zone already loaded — avoids the controller
+ * re-querying rows the service just fetched. Used for any lifecycle stage (started, active,
+ * ended), not only the initial start.
  */
 public record StartedSession(ParkingSession session, Vehicle vehicle, Zone zone) {
 }
