@@ -1,8 +1,11 @@
 package com.pms.auth;
 
 import com.pms.auth.core.AuthService;
+import com.pms.auth.core.AuthTokens;
 import com.pms.auth.core.User;
+import com.pms.auth.request.LoginRequest;
 import com.pms.auth.request.RegisterRequest;
+import com.pms.auth.response.LoginResponse;
 import com.pms.auth.response.RegisterResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,5 +28,13 @@ public class AuthController {
         User user = authService.register(request.username(), request.password());
 
         return new RegisterResponse(user.getId(), user.getUsername());
+    }
+
+    @PostMapping("/login")
+    @ResponseStatus(HttpStatus.OK)
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+        AuthTokens tokens = authService.login(request.username(), request.password());
+
+        return new LoginResponse(tokens.accessToken(), tokens.refreshToken());
     }
 }
