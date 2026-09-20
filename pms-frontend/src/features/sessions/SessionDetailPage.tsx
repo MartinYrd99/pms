@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useParams } from "react-router";
 import { getParkingSession } from "../../api";
+import PaymentSection from "./PaymentSection";
 import { mapSessionDetailError } from "./sessionDetailErrors";
 import "./SessionDetailPage.css";
 
@@ -81,8 +82,14 @@ function SessionDetailPage() {
           <dt>Amount</dt>
           <dd>{formatAmount(sessionQuery.data.amount)}</dd>
 
-          <dt>Payment status</dt>
-          <dd>{sessionQuery.data.paymentStatus ?? "Not paid yet"}</dd>
+          <dt>Payment</dt>
+          <dd>
+            {sessionQuery.data.endedAt === null ? (
+              "Not paid yet"
+            ) : (
+              <PaymentSection sessionId={sessionQuery.data.id} />
+            )}
+          </dd>
         </dl>
       )}
     </section>

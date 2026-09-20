@@ -1,0 +1,15 @@
+.payment-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.payment-section__status {
+  margin: 0;
+}
+
+.payment-section__error {
+  color: #b00020;
+  margin: 0;
+}
