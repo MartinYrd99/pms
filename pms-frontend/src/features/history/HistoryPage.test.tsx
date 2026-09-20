@@ -1,12 +1,12 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../../app/App";
 import { queryClient } from "../../app/queryClient";
 import { routes } from "../../app/router";
 import { setSessionExpiredHandler } from "../../api";
-import { setTokens } from "../../api/tokenStorage";
+import { stubAuthenticatedFetch } from "../../test/apiFetchMock";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -30,11 +30,6 @@ const sessionOne = {
   paymentStatus: "COMPLETED",
 };
 
-beforeEach(() => {
-  localStorage.clear();
-  setTokens({ accessToken: "access-1", refreshToken: "refresh-1" });
-});
-
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -44,14 +39,13 @@ afterEach(() => {
 
 describe("HistoryPage", () => {
   it("renders a mocked first page's rows with vehicle, zone, amount, payment status and the Sofia-local start time", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+    stubAuthenticatedFetch(async (input) => {
       const url = String(input);
       if (url.includes("/parking-sessions?") && url.includes("page=0")) {
         return jsonResponse({ content: [sessionOne], page: 0, size: 20, totalElements: 1 });
       }
       throw new Error(`Unexpected request: ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderHistoryPage();
 
@@ -79,7 +73,7 @@ describe("HistoryPage", () => {
       totalElements: 21,
     };
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+    stubAuthenticatedFetch(async (input) => {
       const url = String(input);
       if (url.includes("/parking-sessions?") && url.includes("page=0")) {
         return jsonResponse(pageZero);
@@ -89,7 +83,6 @@ describe("HistoryPage", () => {
       }
       throw new Error(`Unexpected request: ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderHistoryPage();
 
@@ -107,14 +100,13 @@ describe("HistoryPage", () => {
   });
 
   it("renders the empty state for a mocked empty first page", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+    stubAuthenticatedFetch(async (input) => {
       const url = String(input);
       if (url.includes("/parking-sessions?") && url.includes("page=0")) {
         return jsonResponse({ content: [], page: 0, size: 20, totalElements: 0 });
       }
       throw new Error(`Unexpected request: ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderHistoryPage();
 
@@ -122,14 +114,13 @@ describe("HistoryPage", () => {
   });
 
   it("renders a readable error rather than a blank screen for a mocked error response", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+    stubAuthenticatedFetch(async (input) => {
       const url = String(input);
       if (url.includes("/parking-sessions?") && url.includes("page=0")) {
         return jsonResponse({ code: "error.unknown", message: "Boom" }, 500);
       }
       throw new Error(`Unexpected request: ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderHistoryPage();
 

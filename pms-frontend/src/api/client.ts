@@ -1,8 +1,8 @@
 import { ApiError } from "./apiError";
 import { notifySessionExpired } from "./sessionExpiredHandler";
-import { clearTokens, getAccessToken, getTokens, setTokens } from "./tokenStorage";
+import { clearAccessToken, getAccessToken, setAccessToken } from "./tokenStorage";
 import type { ErrorResponseBody } from "./types/common";
-import type { LoginResponse, RefreshTokenRequest } from "./types/auth";
+import type { AccessTokenResponse } from "./types/auth";
 
 const API_BASE_PATH = "/api/v1";
 
@@ -27,6 +27,7 @@ export async function apiRequest<TResponse, TBody = undefined>(
 async function executeRequest<TResponse, TBody>(
   options: ApiRequestOptions<TBody>,
   isRetry: boolean,
+  episode?: RefreshEpisode,
 ): Promise<TResponse> {
   const response = await sendRequest(options);
 
@@ -38,18 +39,21 @@ async function executeRequest<TResponse, TBody>(
   const isUnauthorized = response.status === 401;
 
   if (isUnauthorized && requiresAuth && !isRetry) {
-    const refreshed = await refreshTokens();
+    const refresh = refreshTokens();
+    const refreshed = await refresh.result;
     if (refreshed) {
-      return executeRequest<TResponse, TBody>(options, true);
+      return executeRequest<TResponse, TBody>(options, true, refresh.episode);
     }
 
-    // performRefresh() already cleared tokens and notified the session-expired handler.
+    // The shared refresh already notified the session-expired handler at most once for this episode.
     throw await buildApiError(response);
   }
 
   if (isUnauthorized && requiresAuth && isRetry) {
-    clearTokens();
-    notifySessionExpired();
+    clearAccessToken();
+    // Same episode as the refresh that produced this retry's token, so a burst of concurrent
+    // retries that all still 401 still only notifies once.
+    episode?.reportSessionDead();
   }
 
   throw await buildApiError(response);
@@ -74,6 +78,7 @@ async function sendRequest<TBody>(options: ApiRequestOptions<TBody>): Promise<Re
     method: options.method,
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    credentials: "same-origin",
   });
 }
 
@@ -128,50 +133,113 @@ function isErrorResponseBody(value: unknown): value is ErrorResponseBody {
   return typeof record.code === "string" && typeof record.message === "string";
 }
 
-// Refresh tokens rotate, so every 401 that needs one shares this single in-flight call.
-let inFlightRefresh: Promise<boolean> | null = null;
+// One refresh can be awaited by many callers (concurrent 401s, or the 401 interceptor racing
+// app-boot restoreSession()), but the "session expired" callback must fire at most once for it.
+// The latch lives on the episode object itself -- shared by reference with every waiter of that
+// one refresh -- so exactly-once holds structurally, not because every caller behaves.
+class RefreshEpisode {
+  private notifyIntent = false;
+  private notified = false;
 
-function refreshTokens(): Promise<boolean> {
-  if (inFlightRefresh === null) {
-    inFlightRefresh = performRefresh().finally(() => {
-      inFlightRefresh = null;
-    });
+  /** Called by a waiter that wants a failed refresh treated as "session expired", not "not signed in". */
+  wantNotifyOnFailure(): void {
+    this.notifyIntent = true;
   }
 
-  return inFlightRefresh;
+  /** Fires the session-expired callback once for this episode, if any waiter asked for it. */
+  reportSessionDead(): void {
+    if (this.notified || !this.notifyIntent) {
+      return;
+    }
+
+    this.notified = true;
+    notifySessionExpired();
+  }
+}
+
+interface SharedRefresh {
+  episode: RefreshEpisode;
+  result: Promise<boolean>;
+}
+
+// The refresh cookie rotates, so every caller that needs a refresh -- the 401 interceptor and the
+// app-boot restoreSession() alike -- shares this single in-flight call. React StrictMode's double
+// mount otherwise fires two boot refreshes that would each burn a single-use refresh token.
+let inFlight: SharedRefresh | null = null;
+
+function sharedRefresh(): SharedRefresh {
+  if (inFlight !== null) {
+    return inFlight;
+  }
+
+  const episode = new RefreshEpisode();
+  const result = performRefresh()
+    .then((succeeded) => {
+      if (!succeeded) {
+        episode.reportSessionDead();
+      }
+
+      return succeeded;
+    })
+    .finally(() => {
+      inFlight = null;
+    });
+
+  inFlight = { episode, result };
+
+  return inFlight;
 }
 
 async function performRefresh(): Promise<boolean> {
-  const stored = getTokens();
-  if (stored === null) {
-    clearTokens();
-    notifySessionExpired();
+  const accessToken = await requestRefreshedAccessToken();
+
+  if (accessToken === null) {
+    clearAccessToken();
 
     return false;
   }
 
+  setAccessToken(accessToken);
+
+  return true;
+}
+
+// Marks the current (or about-to-start) shared refresh as one whose failure should be treated as
+// "session expired" -- see RefreshEpisode above for how that stays exactly-once regardless of how
+// many 401'd requests join this same in-flight refresh.
+function refreshTokens(): SharedRefresh {
+  const refresh = sharedRefresh();
+  refresh.episode.wantNotifyOnFailure();
+
+  return refresh;
+}
+
+/**
+ * Restores a session once at app boot from the HttpOnly refresh cookie alone. A missing or
+ * expired cookie just means "nobody is signed in yet" here, not a session dying mid-visit, so
+ * unlike the interceptor's own refresh this never fires the session-expired callback.
+ */
+export function restoreSession(): Promise<boolean> {
+  return sharedRefresh().result;
+}
+
+/** POSTs /auth/refresh with no body; the browser attaches the HttpOnly cookie on its own. */
+async function requestRefreshedAccessToken(): Promise<string | null> {
   try {
     const response = await fetch(buildUrl("/auth/refresh"), {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: stored.refreshToken } satisfies RefreshTokenRequest),
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
     });
 
     if (!response.ok) {
-      clearTokens();
-      notifySessionExpired();
-
-      return false;
+      return null;
     }
 
-    const tokens = (await response.json()) as LoginResponse;
-    setTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
+    const tokens = (await response.json()) as AccessTokenResponse;
 
-    return true;
+    return tokens.accessToken;
   } catch {
-    clearTokens();
-    notifySessionExpired();
-
-    return false;
+    return null;
   }
 }

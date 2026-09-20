@@ -67,10 +67,15 @@ public class AuthService {
 
     /**
      * Rotation: the presented refresh token is revoked and a brand-new access/refresh pair is
-     * issued in the same transaction, so a token is never both revoked and un-replaced.
+     * issued in the same transaction, so a token is never both revoked and un-replaced. A missing
+     * cookie is treated exactly like an unknown one.
      */
     @Transactional
     public AuthTokens refresh(String rawRefreshToken) {
+        if (isNull(rawRefreshToken)) {
+            throw new BadCredentialsException("Invalid or expired refresh token");
+        }
+
         User user = refreshTokenService.rotate(rawRefreshToken);
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = refreshTokenService.issue(user);
@@ -78,8 +83,16 @@ public class AuthService {
         return new AuthTokens(accessToken, refreshToken);
     }
 
+    /**
+     * A missing cookie is a no-op, same as an already-invalid token: logout never reveals whether
+     * a token was presented at all.
+     */
     @Transactional
     public void logout(String rawRefreshToken) {
+        if (isNull(rawRefreshToken)) {
+            return;
+        }
+
         refreshTokenService.revoke(rawRefreshToken);
     }
 }

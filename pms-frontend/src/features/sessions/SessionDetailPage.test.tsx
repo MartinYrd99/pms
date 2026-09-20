@@ -1,12 +1,12 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../../app/App";
 import { queryClient } from "../../app/queryClient";
 import { routes } from "../../app/router";
 import { setSessionExpiredHandler } from "../../api";
-import { setTokens } from "../../api/tokenStorage";
+import { stubAuthenticatedFetch } from "../../test/apiFetchMock";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -56,11 +56,6 @@ function notFoundResponse(): Response {
   return jsonResponse({ code: "error.not-found", message: "No payment for this session." }, 404);
 }
 
-beforeEach(() => {
-  localStorage.clear();
-  setTokens({ accessToken: "access-1", refreshToken: "refresh-1" });
-});
-
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
@@ -75,7 +70,7 @@ describe("SessionDetailPage payment", () => {
 
     let getPaymentCalls = 0;
     let postPaymentCalls = 0;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -95,7 +90,6 @@ describe("SessionDetailPage payment", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderSessionDetailPage();
     await flushMicrotasks();
@@ -125,7 +119,7 @@ describe("SessionDetailPage payment", () => {
     vi.useFakeTimers();
 
     let getPaymentCalls = 0;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -138,7 +132,6 @@ describe("SessionDetailPage payment", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderSessionDetailPage();
     await flushMicrotasks();
@@ -193,7 +186,7 @@ describe("SessionDetailPage payment", () => {
     vi.useFakeTimers();
 
     let getPaymentCalls = 0;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -211,7 +204,6 @@ describe("SessionDetailPage payment", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderSessionDetailPage();
     await flushMicrotasks();
@@ -262,7 +254,7 @@ describe("SessionDetailPage payment", () => {
   it("a mocked FAILED status offers Retry, and tapping it posts the payment endpoint again and returns to the pending state", async () => {
     const user = userEvent.setup();
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -277,7 +269,6 @@ describe("SessionDetailPage payment", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderSessionDetailPage();
 

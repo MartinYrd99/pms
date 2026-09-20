@@ -1,37 +1,16 @@
-export interface StoredTokens {
-  accessToken: string;
-  refreshToken: string;
-}
-
-// Single localStorage key for both tokens, so the 48h refresh token survives a reload.
-const STORAGE_KEY = "pms.auth.tokens";
-
-export function getTokens(): StoredTokens | null {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw === null) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(raw) as StoredTokens;
-  } catch {
-    return null;
-  }
-}
+// The access token lives only in memory: it is re-minted from the HttpOnly refresh cookie on
+// every app boot and dies on reload, so it can never be read out of durable, script-accessible
+// storage.
+let accessToken: string | null = null;
 
 export function getAccessToken(): string | null {
-  return getTokens()?.accessToken ?? null;
+  return accessToken;
 }
 
-export function setTokens(tokens: StoredTokens): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tokens));
+export function setAccessToken(token: string): void {
+  accessToken = token;
 }
 
-export function clearTokens(): void {
-  localStorage.removeItem(STORAGE_KEY);
-}
-
-/** Lets a route guard ask "is anyone logged in" without ever reading the tokens themselves. */
-export function hasStoredSession(): boolean {
-  return getTokens() !== null;
+export function clearAccessToken(): void {
+  accessToken = null;
 }

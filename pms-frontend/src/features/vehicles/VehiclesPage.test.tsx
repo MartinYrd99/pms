@@ -1,12 +1,12 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../../app/App";
 import { queryClient } from "../../app/queryClient";
 import { routes } from "../../app/router";
 import { setSessionExpiredHandler } from "../../api";
-import { setTokens } from "../../api/tokenStorage";
+import { stubAuthenticatedFetch } from "../../test/apiFetchMock";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -20,11 +20,6 @@ function renderVehiclesPage() {
   return render(<App router={testRouter} />);
 }
 
-beforeEach(() => {
-  localStorage.clear();
-  setTokens({ accessToken: "access-1", refreshToken: "refresh-1" });
-});
-
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -34,7 +29,7 @@ afterEach(() => {
 
 describe("VehiclesPage", () => {
   it("renders both plates for a mocked two-vehicle response", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+    stubAuthenticatedFetch(async (input) => {
       const url = String(input);
       if (url.endsWith("/vehicles")) {
         return jsonResponse([
@@ -44,7 +39,6 @@ describe("VehiclesPage", () => {
       }
       throw new Error(`Unexpected request: ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderVehiclesPage();
 
@@ -53,14 +47,13 @@ describe("VehiclesPage", () => {
   });
 
   it("renders the empty state for a mocked empty response", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+    stubAuthenticatedFetch(async (input) => {
       const url = String(input);
       if (url.endsWith("/vehicles")) {
         return jsonResponse([]);
       }
       throw new Error(`Unexpected request: ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderVehiclesPage();
 
@@ -71,7 +64,7 @@ describe("VehiclesPage", () => {
     const user = userEvent.setup();
     let vehicles = [{ id: 1, plate: "CA1111XX", brand: "VW", model: "Golf" }];
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -86,7 +79,6 @@ describe("VehiclesPage", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderVehiclesPage();
 
@@ -108,7 +100,7 @@ describe("VehiclesPage", () => {
   it("renders the duplicate-plate message on a 409, keeps the typed values and leaves the list unchanged", async () => {
     const user = userEvent.setup();
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -123,7 +115,6 @@ describe("VehiclesPage", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderVehiclesPage();
 

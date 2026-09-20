@@ -59,9 +59,9 @@ All endpoints under `/api/v1`, JSON, authenticated with a **JWT bearer access to
 | # | Endpoint | Task step | Notes |
 |---|---|---|---|
 | 1 | `POST /auth/register` | — | `{username, password}` → 201. Public. |
-| 2 | `POST /auth/login` | — | `{username, password}` → `{accessToken, refreshToken}`. Public. |
-| 3 | `POST /auth/refresh` | — | `{refreshToken}` → new `{accessToken, refreshToken}`; the old refresh token is revoked (rotation). 401 if unknown, expired or already used. Public. |
-| 4 | `POST /auth/logout` | — | `{refreshToken}` → 204; revokes it. The access token dies on its own within 10 min. |
+| 2 | `POST /auth/login` | — | `{username, password}` → `{accessToken}`, plus the refresh token as an `HttpOnly` cookie (`Set-Cookie`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth`, 48 h `Max-Age`). Public. |
+| 3 | `POST /auth/refresh` | — | No body; reads the refresh cookie. → `{accessToken}` and a rotated refresh cookie; the old refresh token is revoked (rotation). 401 if the cookie is missing, unknown, expired or already used — also clears the cookie. Public. |
+| 4 | `POST /auth/logout` | — | No body; reads the refresh cookie. → 204; revokes it and clears the cookie. The access token dies on its own within 10 min. |
 | 5 | `GET /vehicles` | 1 | Own vehicles. |
 | 6 | `POST /vehicles` | — | `{plate, brand, model}` → 201. Plate unique system-wide → 409 on duplicate. |
 | 7 | `GET /zones` | 2 | **Active zones only**, with tariff so the UI can show the rate before starting. |
@@ -83,7 +83,7 @@ All endpoints under `/api/v1`, JSON, authenticated with a **JWT bearer access to
 
 **Why payment is asynchronous:** a real provider never answers synchronously — the client submits, then observes the status. The prototype mirrors that shape: `POST` creates the payment as `PENDING` and returns immediately; a background step settles it to `COMPLETED` (or `FAILED`) shortly after; the UI polls endpoint 11. This keeps step 8 of the task ("view payment status") a real step, and swapping the simulator for a provider later changes the settlement step, not the API. Idempotent `POST` is what makes client retries safe while a payment is in flight.
 
-**Why JWT over a session cookie:** stateless app instances, no CSRF surface, and the SPA can run on a separate dev origin without cookie/same-site setup.
+**Why an in-memory access token plus an `HttpOnly` refresh cookie:** the access token is never persisted — it lives in a module variable in the SPA and dies on reload — while the 48 h refresh token is a server-set `HttpOnly` cookie JavaScript can neither read nor write. This buys real protection against **exfiltration**: script injected into the page cannot copy the refresh token out to be replayed elsewhere, and a page reload leaves nothing credential-shaped in JavaScript-readable storage. It does *not* stop a script from *using* the session while it runs — the cookie still rides along on same-origin requests the page itself makes, so an XSS bug can still act as the user, just not walk away with a 48 h credential. Vite (dev) and nginx (Compose) both proxy `/api/v1` to the backend, so the browser sees one origin and the cookie needs no cross-site handling. A **double-submit CSRF token was deliberately not added**: `SameSite=Strict` plus scoping the cookie's `Path` to `/api/v1/auth` mean it is never attached to a cross-site request, and it is only ever sent by same-origin `fetch` calls, never a top-level navigation — so the residual worst case of a forced cross-site `POST` to `/auth/refresh` is a forced logout (blocked anyway by `SameSite=Strict`), not account access. The other twelve endpoints never see this cookie at all (`Path` scoping) and stay bearer-token-only, unaffected by cookie CSRF concerns.
 
 **Why access + refresh rather than one long-lived JWT:** a parking session outlives any sane access-token TTL (§9, time attack), so *something* must last 48 h. Making that the refresh token — stored hashed, rotated on use, revocable — keeps the bearer token that travels on every request short-lived (10 min blast radius if stolen) and gives logout real meaning. Cost: one small table and two endpoints.
 

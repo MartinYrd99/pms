@@ -1,6 +1,6 @@
 export { ApiError, isApiError } from "./apiError";
 export { setSessionExpiredHandler } from "./sessionExpiredHandler";
-export { hasStoredSession } from "./tokenStorage";
+export { restoreSession } from "./client";
 
 export { login, logout, refresh, register } from "./auth";
 export { createVehicle, listVehicles } from "./vehicles";
@@ -15,13 +15,7 @@ export {
 export { getParkingSessionPayment, payForParkingSession } from "./payments";
 
 export type { ErrorResponseBody, PageResponse } from "./types/common";
-export type {
-  LoginRequest,
-  LoginResponse,
-  RefreshTokenRequest,
-  RegisterRequest,
-  RegisterResponse,
-} from "./types/auth";
+export type { AccessTokenResponse, LoginRequest, RegisterRequest, RegisterResponse } from "./types/auth";
 export type { VehicleRequest, VehicleResponse } from "./types/vehicle";
 export type { RuleType, ZoneResponse } from "./types/zone";
 export type {

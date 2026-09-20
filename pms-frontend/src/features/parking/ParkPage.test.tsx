@@ -1,12 +1,12 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../../app/App";
 import { queryClient } from "../../app/queryClient";
 import { routes } from "../../app/router";
 import { setSessionExpiredHandler } from "../../api";
-import { setTokens } from "../../api/tokenStorage";
+import { stubAuthenticatedFetch } from "../../test/apiFetchMock";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -26,11 +26,6 @@ const zones = [
   { id: 11, name: "Green Zone", city: "Sofia", hourlyRate: 1.5, currency: "EUR", ruleType: "HOURLY" },
 ];
 
-beforeEach(() => {
-  localStorage.clear();
-  setTokens({ accessToken: "access-1", refreshToken: "refresh-1" });
-});
-
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -40,7 +35,7 @@ afterEach(() => {
 
 describe("ParkPage", () => {
   it("renders zone options with name, city and rate, and vehicle options from the mocked lists", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+    stubAuthenticatedFetch(async (input) => {
       const url = String(input);
       if (url.endsWith("/vehicles")) {
         return jsonResponse(vehicles);
@@ -50,7 +45,6 @@ describe("ParkPage", () => {
       }
       throw new Error(`Unexpected request: ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderParkPage();
 
@@ -66,7 +60,7 @@ describe("ParkPage", () => {
   it("posts the selected vehicle and zone and lands on the created session's detail screen", async () => {
     const user = userEvent.setup();
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -106,7 +100,6 @@ describe("ParkPage", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderParkPage();
 
@@ -122,7 +115,7 @@ describe("ParkPage", () => {
   it("on a 409 with a blocking session, lands on that session and shows why", async () => {
     const user = userEvent.setup();
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -155,7 +148,6 @@ describe("ParkPage", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderParkPage();
 
@@ -172,7 +164,7 @@ describe("ParkPage", () => {
   it("on a 409 with no blocking session id (the double-tap race), re-reads the active sessions and lands on the matching one", async () => {
     const user = userEvent.setup();
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -218,7 +210,6 @@ describe("ParkPage", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderParkPage();
 
@@ -235,7 +226,7 @@ describe("ParkPage", () => {
   it("on a 409 with no blocking session id, and the re-read finds nothing, still shows the unsettled message rather than a zone message", async () => {
     const user = userEvent.setup();
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -261,7 +252,6 @@ describe("ParkPage", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderParkPage();
 

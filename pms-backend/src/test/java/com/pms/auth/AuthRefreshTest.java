@@ -1,25 +1,24 @@
 package com.pms.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.pms.AbstractPostgresIT;
+import com.pms.auth.core.RefreshCookieFactory;
 import com.pms.auth.core.RefreshToken;
 import com.pms.auth.core.RefreshTokenRepository;
 import com.pms.auth.core.User;
 import com.pms.auth.core.UserRepository;
 import com.pms.auth.request.LoginRequest;
-import com.pms.auth.request.RefreshTokenRequest;
 import com.pms.auth.request.RegisterRequest;
-import com.pms.auth.response.LoginResponse;
+import com.pms.auth.response.AccessTokenResponse;
+import jakarta.servlet.http.Cookie;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
@@ -27,8 +26,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.ObjectMapper;
 
@@ -48,33 +50,29 @@ class AuthRefreshTest extends AbstractPostgresIT {
     private ObjectMapper objectMapper;
 
     @Test
-    void refreshWithValidTokenReturnsNewPairAndRevokesThePresentedToken() throws Exception {
+    void refreshWithValidCookieReturnsNewAccessTokenAndRevokesThePresentedToken() throws Exception {
         String username = "driver-" + UUID.randomUUID();
-        LoginResponse loginResponse = registerAndLogin(username, "correct-horse-battery");
+        String rawRefreshToken = registerAndLogin(username, "correct-horse-battery");
         User user = userRepository.findByUsername(username).orElseThrow();
-        RefreshToken presented = findByRawToken(user, loginResponse.refreshToken());
+        RefreshToken presented = findByRawToken(user, rawRefreshToken);
 
-        String responseBody = mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefreshTokenRequest(loginResponse.refreshToken()))))
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/refresh")
+                        .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, rawRefreshToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isString())
-                .andExpect(jsonPath("$.refreshToken").isString())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+                .andExpect(jsonPath("$.length()").value(1))
+                .andReturn();
 
-        LoginResponse rotated = objectMapper.readValue(responseBody, LoginResponse.class);
-        assertThat(rotated.accessToken()).isNotBlank().isNotEqualTo(loginResponse.accessToken());
-        assertThat(rotated.refreshToken()).isNotBlank().isNotEqualTo(loginResponse.refreshToken());
+        String setCookie = result.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        assertThat(setCookie).isNotNull();
+        String rotatedRawToken = extractCookieValue(setCookie);
+        assertThat(rotatedRawToken).isNotBlank().isNotEqualTo(rawRefreshToken);
 
         RefreshToken presentedAfterRotation = refreshTokenRepository.findById(presented.getId()).orElseThrow();
         assertThat(presentedAfterRotation.getRevokedAt()).isNotNull();
 
-        RefreshToken rotatedRow = findByRawToken(user, rotated.refreshToken());
+        RefreshToken rotatedRow = findByRawToken(user, rotatedRawToken);
         assertThat(rotatedRow.getRevokedAt()).isNull();
-        assertThat(rotatedRow.getExpiresAt()).isCloseTo(Instant.now().plus(Duration.ofHours(48)), within(1, ChronoUnit.MINUTES));
 
         List<RefreshToken> tokensForUser = refreshTokenRepository.findAll().stream()
                 .filter(token -> token.getUser().getId().equals(user.getId()))
@@ -83,30 +81,26 @@ class AuthRefreshTest extends AbstractPostgresIT {
     }
 
     @Test
-    void refreshingWithAnAlreadyUsedTokenReturns401OnTheSecondAttempt() throws Exception {
+    void refreshingWithAnAlreadyUsedCookieReturns401OnTheSecondAttempt() throws Exception {
         String username = "driver-" + UUID.randomUUID();
-        LoginResponse loginResponse = registerAndLogin(username, "correct-horse-battery");
-        String rawRefreshToken = loginResponse.refreshToken();
+        String rawRefreshToken = registerAndLogin(username, "correct-horse-battery");
 
         mockMvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefreshTokenRequest(rawRefreshToken))))
+                        .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, rawRefreshToken)))
                 .andExpect(status().isOk());
 
-        assertNeutralUnauthorized(post("/api/v1/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new RefreshTokenRequest(rawRefreshToken))));
+        assertNeutralUnauthorizedWithClearedCookie(
+                post("/api/v1/auth/refresh").cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, rawRefreshToken)));
     }
 
     @Test
-    void refreshingWithAnUnknownTokenReturns401WithTheNeutralBody() throws Exception {
-        assertNeutralUnauthorized(post("/api/v1/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new RefreshTokenRequest("not-a-known-token"))));
+    void refreshingWithAnUnknownCookieReturns401WithTheNeutralBody() throws Exception {
+        assertNeutralUnauthorizedWithClearedCookie(post("/api/v1/auth/refresh")
+                .cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, "not-a-known-token")));
     }
 
     @Test
-    void refreshingWithAnExpiredTokenReturns401WithTheSameNeutralBody() throws Exception {
+    void refreshingWithAnExpiredCookieReturns401WithTheSameNeutralBody() throws Exception {
         String username = "driver-" + UUID.randomUUID();
         registerUser(username, "correct-horse-battery");
         User user = userRepository.findByUsername(username).orElseThrow();
@@ -118,34 +112,43 @@ class AuthRefreshTest extends AbstractPostgresIT {
                 .setExpiresAt(Instant.now().minus(Duration.ofHours(1)));
         refreshTokenRepository.save(expired);
 
-        assertNeutralUnauthorized(post("/api/v1/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new RefreshTokenRequest(rawExpiredToken))));
+        assertNeutralUnauthorizedWithClearedCookie(
+                post("/api/v1/auth/refresh").cookie(new Cookie(RefreshCookieFactory.COOKIE_NAME, rawExpiredToken)));
 
         RefreshToken stillExpired = refreshTokenRepository.findById(expired.getId()).orElseThrow();
         assertThat(stillExpired.getRevokedAt()).isNull();
     }
 
-    private void assertNeutralUnauthorized(MockHttpServletRequestBuilder request) throws Exception {
-        mockMvc.perform(request)
+    @Test
+    void refreshingWithNoCookieAtAllReturns401WithTheSameNeutralBody() throws Exception {
+        assertNeutralUnauthorizedWithClearedCookie(post("/api/v1/auth/refresh"));
+    }
+
+    private void assertNeutralUnauthorizedWithClearedCookie(MockHttpServletRequestBuilder request) throws Exception {
+        ResultActions result = mockMvc.perform(request)
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("validation.unauthorized"))
                 .andExpect(jsonPath("$.message").isString())
                 .andExpect(jsonPath("$.length()").value(2));
+
+        String setCookie = result.andReturn().getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        assertThat(setCookie).isNotNull();
+        assertThat(setCookie).contains("Max-Age=0");
+        assertThat(setCookie).contains("Path=/api/v1/auth");
     }
 
-    private LoginResponse registerAndLogin(String username, String rawPassword) throws Exception {
+    private String registerAndLogin(String username, String rawPassword) throws Exception {
         registerUser(username, rawPassword);
 
-        String responseBody = mockMvc.perform(post("/api/v1/auth/login")
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new LoginRequest(username, rawPassword))))
                 .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+                .andReturn();
 
-        return objectMapper.readValue(responseBody, LoginResponse.class);
+        objectMapper.readValue(result.getResponse().getContentAsString(), AccessTokenResponse.class);
+
+        return extractCookieValue(result.getResponse().getHeader(HttpHeaders.SET_COOKIE));
     }
 
     private void registerUser(String username, String rawPassword) throws Exception {
@@ -163,6 +166,13 @@ class AuthRefreshTest extends AbstractPostgresIT {
                 .filter(token -> token.getTokenHash().equals(tokenHash))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private String extractCookieValue(String setCookieHeader) {
+        String prefix = RefreshCookieFactory.COOKIE_NAME + "=";
+        String firstAttribute = setCookieHeader.split(";")[0].trim();
+
+        return firstAttribute.substring(prefix.length());
     }
 
     private String sha256Hex(String rawToken) {

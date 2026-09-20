@@ -1,12 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../../app/App";
 import { queryClient } from "../../app/queryClient";
 import { routes } from "../../app/router";
 import { setSessionExpiredHandler } from "../../api";
-import { getTokens } from "../../api/tokenStorage";
+import { getAccessToken } from "../../api/tokenStorage";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -14,10 +14,6 @@ function jsonResponse(body: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
   });
 }
-
-beforeEach(() => {
-  localStorage.clear();
-});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -30,8 +26,11 @@ describe("LoginPage", () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
       const url = String(input);
+      if (url.endsWith("/auth/refresh")) {
+        return jsonResponse({ code: "auth.invalid_refresh_token", message: "Unauthorized" }, 401);
+      }
       if (url.endsWith("/auth/login")) {
-        return jsonResponse({ accessToken: "access-1", refreshToken: "refresh-1" });
+        return jsonResponse({ accessToken: "access-1" });
       }
       if (url.endsWith("/parking-sessions/active")) {
         return jsonResponse([]);
@@ -50,13 +49,16 @@ describe("LoginPage", () => {
     expect(
       await screen.findByRole("heading", { name: /active parking/i }),
     ).toBeInTheDocument();
-    expect(getTokens()).toEqual({ accessToken: "access-1", refreshToken: "refresh-1" });
+    expect(getAccessToken()).toBe("access-1");
   });
 
   it("renders 'invalid username or password' on a 401 and keeps the user on /login with the username filled in", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
       const url = String(input);
+      if (url.endsWith("/auth/refresh")) {
+        return jsonResponse({ code: "auth.invalid_refresh_token", message: "Unauthorized" }, 401);
+      }
       if (url.endsWith("/auth/login")) {
         return jsonResponse({ code: "auth.invalid_credentials", message: "Bad credentials" }, 401);
       }
@@ -75,6 +77,6 @@ describe("LoginPage", () => {
     expect(await screen.findByText(/invalid username or password/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /sign in/i })).toBeInTheDocument();
     expect(usernameInput).toHaveValue("bob");
-    expect(getTokens()).toBeNull();
+    expect(getAccessToken()).toBeNull();
   });
 });

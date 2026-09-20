@@ -1,12 +1,12 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../../app/App";
 import { queryClient } from "../../app/queryClient";
 import { routes } from "../../app/router";
 import { setSessionExpiredHandler } from "../../api";
-import { setTokens } from "../../api/tokenStorage";
+import { stubAuthenticatedFetch } from "../../test/apiFetchMock";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -40,11 +40,6 @@ const sessionTwo = {
   paymentStatus: null,
 };
 
-beforeEach(() => {
-  localStorage.clear();
-  setTokens({ accessToken: "access-1", refreshToken: "refresh-1" });
-});
-
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
@@ -58,17 +53,20 @@ describe("ActivePage", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-20T10:00:00Z"));
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+    stubAuthenticatedFetch(async (input) => {
       const url = String(input);
       if (url.endsWith("/parking-sessions/active")) {
         return jsonResponse([sessionOne, sessionTwo]);
       }
       throw new Error(`Unexpected request: ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderActivePage();
 
+    // Two ticks: one for the boot-time restoreSession() refresh, one for the page's own fetch.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -90,14 +88,13 @@ describe("ActivePage", () => {
   });
 
   it("renders the empty state with a link to start a parking for a mocked empty active list", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+    stubAuthenticatedFetch(async (input) => {
       const url = String(input);
       if (url.endsWith("/parking-sessions/active")) {
         return jsonResponse([]);
       }
       throw new Error(`Unexpected request: ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderActivePage();
 
@@ -111,7 +108,7 @@ describe("ActivePage", () => {
   it("tapping End with a mocked 200 renders the end time and the returned amount", async () => {
     const user = userEvent.setup();
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -123,7 +120,6 @@ describe("ActivePage", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderActivePage();
 
@@ -146,7 +142,7 @@ describe("ActivePage", () => {
   it("tapping End with a mocked 409 whose body is the ended session renders that same ended session and its amount, not a generic failure", async () => {
     const user = userEvent.setup();
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    stubAuthenticatedFetch(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
@@ -165,7 +161,6 @@ describe("ActivePage", () => {
       }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     renderActivePage();
 

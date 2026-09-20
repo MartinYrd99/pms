@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.pms.auth.core.AuthService;
+import com.pms.auth.core.RefreshCookieFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -22,6 +23,9 @@ class AuthControllerValidationTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private RefreshCookieFactory refreshCookieFactory;
 
     @Test
     void blankUsernameReturns400() throws Exception {

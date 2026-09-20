@@ -7,24 +7,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.pms.AbstractPostgresIT;
+import com.pms.auth.core.RefreshCookieFactory;
 import com.pms.auth.core.RefreshToken;
 import com.pms.auth.core.RefreshTokenRepository;
 import com.pms.auth.core.User;
 import com.pms.auth.core.UserRepository;
 import com.pms.auth.request.LoginRequest;
 import com.pms.auth.request.RegisterRequest;
-import com.pms.auth.response.LoginResponse;
+import com.pms.auth.response.AccessTokenResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest
@@ -43,25 +48,31 @@ class AuthLoginTest extends AbstractPostgresIT {
     private ObjectMapper objectMapper;
 
     @Test
-    void loginWithCorrectCredentialsReturnsTokensAndPersistsHashedRefreshToken() throws Exception {
+    void loginWithCorrectCredentialsReturnsOnlyTheAccessTokenAndPersistsHashedRefreshToken() throws Exception {
         String username = "driver-" + UUID.randomUUID();
         String rawPassword = "correct-horse-battery";
         registerUser(username, rawPassword);
 
-        String responseBody = mockMvc.perform(post("/api/v1/auth/login")
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new LoginRequest(username, rawPassword))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isString())
-                .andExpect(jsonPath("$.refreshToken").isString())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andReturn();
 
-        LoginResponse loginResponse = objectMapper.readValue(responseBody, LoginResponse.class);
+        AccessTokenResponse loginResponse = objectMapper.readValue(result.getResponse().getContentAsString(), AccessTokenResponse.class);
         assertThat(loginResponse.accessToken()).isNotBlank();
-        assertThat(loginResponse.refreshToken()).isNotBlank();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("refreshToken");
+
+        String setCookie = result.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        assertThat(setCookie).isNotNull();
+        assertThat(setCookie).contains(RefreshCookieFactory.COOKIE_NAME + "=");
+        assertThat(setCookie).containsIgnoringCase("HttpOnly");
+        assertThat(setCookie).contains("SameSite=Strict");
+        assertThat(setCookie).contains("Path=/api/v1/auth");
+        assertThat(maxAgeSecondsOf(setCookie)).isCloseTo(Duration.ofHours(48).toSeconds(), within(60L));
 
         User user = userRepository.findByUsername(username).orElseThrow();
         List<RefreshToken> tokens = refreshTokenRepository.findAll().stream()
@@ -70,7 +81,6 @@ class AuthLoginTest extends AbstractPostgresIT {
         assertThat(tokens).hasSize(1);
 
         RefreshToken persisted = tokens.get(0);
-        assertThat(persisted.getTokenHash()).isNotEqualTo(loginResponse.refreshToken());
         assertThat(persisted.getRevokedAt()).isNull();
         assertThat(persisted.getExpiresAt()).isCloseTo(Instant.now().plus(Duration.ofHours(48)), within(1, ChronoUnit.MINUTES));
     }
@@ -106,5 +116,15 @@ class AuthLoginTest extends AbstractPostgresIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new RegisterRequest(username, rawPassword))))
                 .andExpect(status().isCreated());
+    }
+
+    private long maxAgeSecondsOf(String setCookieHeader) {
+        return Stream.of(setCookieHeader.split(";"))
+                .map(String::trim)
+                .filter(attribute -> attribute.regionMatches(true, 0, "Max-Age=", 0, "Max-Age=".length()))
+                .map(attribute -> attribute.substring("Max-Age=".length()))
+                .mapToLong(Long::parseLong)
+                .findFirst()
+                .orElseThrow();
     }
 }
