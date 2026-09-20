@@ -24,5 +24,6 @@ public abstract class AbstractPostgresIT {
         registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
         registry.add("spring.flyway.user", POSTGRES::getUsername);
         registry.add("spring.flyway.password", POSTGRES::getPassword);
+        registry.add("pms.payment.settlement.enabled", () -> "false");
     }
 }

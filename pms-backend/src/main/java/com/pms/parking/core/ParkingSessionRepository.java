@@ -23,4 +23,12 @@ public interface ParkingSessionRepository extends JpaRepository<ParkingSession, 
     @Modifying(clearAutomatically = true)
     @Query("UPDATE ParkingSession s SET s.endedAt = :endedAt, s.amount = :amount WHERE s.id = :id AND s.endedAt IS NULL")
     int endIfActive(@Param("id") Long id, @Param("endedAt") Instant endedAt, @Param("amount") BigDecimal amount);
+
+    /**
+     * Stamps the session as paid; 0 rows means it was already paid, which settlement must treat
+     * as success rather than an error.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE ParkingSession s SET s.paidAt = :paidAt WHERE s.id = :id AND s.paidAt IS NULL")
+    int markPaidIfUnpaid(@Param("id") Long id, @Param("paidAt") Instant paidAt);
 }
