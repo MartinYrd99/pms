@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional
 public class PaymentService {
     private static final List<PaymentStatus> LIVE_STATUSES = List.of(PaymentStatus.PENDING, PaymentStatus.COMPLETED);
     private static final String SESSION_NOT_FOUND_CODE = "validation.parking-session.not-found";
@@ -41,6 +40,7 @@ public class PaymentService {
      * creating a second one, whether caught by the pre-check or by a racing insert losing to the
      * database's partial unique index.
      */
+    @Transactional
     public PaymentOutcome payFor(Long userId, Long sessionId) {
         log.info("Recording a payment request from user {} for session {}", userId, sessionId);
 

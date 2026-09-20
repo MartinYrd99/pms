@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional
 public class VehicleService {
     private static final String PLATE_TAKEN_CODE = "validation.vehicle.plate-taken";
 
@@ -31,6 +30,7 @@ public class VehicleService {
      * unique constraint is the final authority, so a race that slips past the pre-check is still
      * caught here and mapped to the same conflict.
      */
+    @Transactional
     public Vehicle register(Long userId, String plate, String brand, String model) {
         log.info("Registering plate '{}' for user {}", plate, userId);
 

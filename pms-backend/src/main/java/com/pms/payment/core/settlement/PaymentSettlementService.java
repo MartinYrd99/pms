@@ -23,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Slf4j
-@Transactional
 public class PaymentSettlementService {
     private static final int MAX_ATTEMPTS = 3;
 
@@ -51,6 +50,7 @@ public class PaymentSettlementService {
      * caller can tell an empty queue from a settled one; the queue is the {@code payments} table
      * itself, never an in-memory timer, so a restart with rows still {@code PENDING} loses nothing.
      */
+    @Transactional
     public boolean settleNextPending() {
         return settleNextPending(Set.of()).isPresent();
     }
@@ -61,6 +61,7 @@ public class PaymentSettlementService {
      * later run rather than reclaimed within the same one. Returns the claimed payment, reflecting the outcome of the attempt,
      * or empty if no due payment remained.
      */
+    @Transactional
     Optional<Payment> settleNextPending(Set<Long> excludedPaymentIds) {
         Optional<Payment> claimed = excludedPaymentIds.isEmpty()
                 ? paymentRepository.claimNextPending(clock.instant().minus(claimDelay))

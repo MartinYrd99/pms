@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class ZoneService {
     private final ZoneRepository zoneRepository;
     private final TariffRepository tariffRepository;
@@ -26,6 +25,7 @@ public class ZoneService {
      * Both lookups are batched so the catalogue costs two
      * queries regardless of how many zones exist.
      */
+    @Transactional(readOnly = true)
     public List<ZoneWithCurrentTariff> listActiveZones() {
         List<Zone> activeZones = zoneRepository.findByActiveTrue();
 

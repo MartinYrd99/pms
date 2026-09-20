@@ -29,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional
 public class ParkingSessionService {
     private static final int MAX_PAGE_SIZE = 100;
     private static final String VEHICLE_NOT_FOUND_CODE = "validation.vehicle.not-found";
@@ -51,6 +50,7 @@ public class ParkingSessionService {
     private final PaymentService paymentService;
     private final Clock clock;
 
+    @Transactional
     public StartedSession start(Long userId, Long vehicleId, Long zoneId) {
         log.info("Starting a parking session for user {} (vehicle {}, zone {})", userId, vehicleId, zoneId);
 
@@ -108,6 +108,7 @@ public class ParkingSessionService {
     /**
      * Ends a session and fixes its amount.
      */
+    @Transactional
     public StartedSession end(Long userId, Long sessionId) {
         log.info("Ending parking session {} for user {}", sessionId, userId);
 

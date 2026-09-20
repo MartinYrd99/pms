@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Slf4j
-@Transactional
 public class PaymentExpiryService {
     private final PaymentRepository paymentRepository;
     private final Clock clock;
@@ -38,6 +37,7 @@ public class PaymentExpiryService {
      * Expires every payment still {@code PENDING} past the configured age and logs how many rows
      * it flipped; a {@code COMPLETED} or already-{@code FAILED} payment is never touched.
      */
+    @Transactional
     public void expireStalePending() {
         Instant cutoff = clock.instant().minus(expiryAge);
         int expired = paymentRepository.expirePendingOlderThan(cutoff);
