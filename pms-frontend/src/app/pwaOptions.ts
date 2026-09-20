@@ -7,13 +7,8 @@ import type { VitePWAOptions } from "vite-plugin-pwa";
  * service-worker rules below can be asserted directly in a unit test.
  */
 export const pwaOptions: Partial<VitePWAOptions> = {
-  // The service worker takes over silently on a new deploy; there is no "update available"
-  // prompt UI to build, so the shell simply refreshes itself in the background. vite-plugin-pwa
-  // only wires this up automatically when injectRegister is "auto"/null, so — since registration
-  // is done explicitly below instead — skipWaiting/clientsClaim are set directly on `workbox`.
   registerType: "autoUpdate",
-  // Registration is done explicitly from src/app/registerServiceWorker.ts instead of an
-  // auto-injected <script>, so it stays inside the app's own module graph.
+
   injectRegister: false,
   manifest: {
     name: "Parking Management System",
@@ -32,14 +27,22 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     ],
   },
   workbox: {
-    // Precache the built app shell only: HTML, JS, CSS and icons. No API response is ever
-    // part of this list.
     globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
     // A relaunch paints the shell from cache first; /api/v1/* is excluded so every API call
     // — including the navigation-style ones a driver's first paint depends on — still goes
     // to the network, never to a cached "active session" or "payment PENDING" snapshot.
+    // The same reasoning covers the backend-served docs/health routes nginx proxies on the
+    // packaged app's own origin (/swagger-ui.html, /swagger-ui/**, /v3/api-docs, /actuator/**):
+    // once the service worker is active, a navigation to one of those must still reach the
+    // backend instead of being answered with the cached index.html.
     navigateFallback: "/index.html",
-    navigateFallbackDenylist: [/^\/api\/v1\//],
+    navigateFallbackDenylist: [
+      /^\/api\/v1\//,
+      /^\/swagger-ui\.html$/,
+      /^\/swagger-ui\//,
+      /^\/v3\/api-docs/,
+      /^\/actuator\//,
+    ],
     // No runtimeCaching entries: nothing here can turn an API response into a cached one, and
     // there is no background-sync/queue plugin — a start/end/pay that can't reach the server
     // fails immediately instead of being queued for later.

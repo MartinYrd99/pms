@@ -72,4 +72,12 @@ describe("pwaOptions workbox: /api/v1 stays network-only", () => {
       expect(denylist.some((pattern) => pattern.test(pathname))).toBe(true);
     }
   });
+
+  it("excludes the backend-served docs and health routes proxied on the same origin", () => {
+    const denylist = workbox.navigateFallbackDenylist ?? [];
+    const backendServedPaths = ["/swagger-ui.html", "/swagger-ui/index.html", "/v3/api-docs", "/actuator/health"];
+    for (const path of backendServedPaths) {
+      expect(denylist.some((pattern) => pattern.test(path))).toBe(true);
+    }
+  });
 });

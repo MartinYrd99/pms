@@ -26,15 +26,22 @@ services:
       SPRING_DATASOURCE_USERNAME: pms
       SPRING_DATASOURCE_PASSWORD: pms
     ports:
-      - "8080:8080"
+      - "18080:8080"
+    healthcheck:
+      test: ["CMD", "bash", "-c", 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf ''GET /actuator/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n'' >&3 && grep -q ''^HTTP/1\.1 200'' <&3']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
 
   frontend:
     build:
       context: ./pms-frontend
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
-      - "5173:80"
+      - "8080:80"
 
 volumes:
   postgres-data:
