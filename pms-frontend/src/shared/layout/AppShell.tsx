@@ -37,6 +37,7 @@ function AppShell() {
       </header>
       {status === "authenticated" && (
         <nav className="app-shell__nav">
+          <Link to="/active">Active parking</Link>
           <Link to="/park">Start parking</Link>
           <Link to="/vehicles">Vehicles</Link>
         </nav>

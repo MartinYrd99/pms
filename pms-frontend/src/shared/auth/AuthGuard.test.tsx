@@ -14,6 +14,6 @@ describe("AuthGuard", () => {
     render(<App router={testRouter} />);
 
     expect(screen.getByRole("heading", { name: /sign in/i })).toBeInTheDocument();
-    expect(screen.queryByText(/parking screens will appear here/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /active parking/i })).not.toBeInTheDocument();
   });
 });

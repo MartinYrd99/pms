@@ -26,12 +26,15 @@ afterEach(() => {
 });
 
 describe("LoginPage", () => {
-  it("stores the token pair through the API client and renders the home screen on success", async () => {
+  it("stores the token pair through the API client and lands on the active-parking home screen on success", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
       const url = String(input);
       if (url.endsWith("/auth/login")) {
         return jsonResponse({ accessToken: "access-1", refreshToken: "refresh-1" });
+      }
+      if (url.endsWith("/parking-sessions/active")) {
+        return jsonResponse([]);
       }
       throw new Error(`Unexpected request: ${url}`);
     });
@@ -44,7 +47,9 @@ describe("LoginPage", () => {
     await user.type(screen.getByLabelText(/password/i), "secret123");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
-    expect(await screen.findByText(/parking screens will appear here/i)).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /active parking/i }),
+    ).toBeInTheDocument();
     expect(getTokens()).toEqual({ accessToken: "access-1", refreshToken: "refresh-1" });
   });
 

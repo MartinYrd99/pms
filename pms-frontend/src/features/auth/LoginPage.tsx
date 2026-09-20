@@ -26,7 +26,7 @@ function LoginPage() {
     mutationFn: () => login({ username, password }),
     onSuccess: () => {
       signIn();
-      navigate("/", { replace: true });
+      navigate("/active", { replace: true });
     },
   });
 
