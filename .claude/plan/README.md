@@ -3,6 +3,9 @@
 33 tickets derived solely from `doc/system_design.md`. Execute in numeric order; a ticket may only
 depend on lower-numbered ones. After ticket 33 the whole system design is implemented and runnable.
 
+Ticket 34 onward is hardening: work that **changes** a decision the design doc records rather than
+implementing one, and so updates `doc/system_design.md` as part of its scope.
+
 Run one with the `/task` skill:
 
 ```
@@ -79,10 +82,16 @@ Close a finished ticket by editing its frontmatter `status: open` → `status: f
 |---|---|---|
 | 33 | [Full-stack compose and run instructions](phase-7-packaging/33-full-stack-compose-and-run-instructions.md) | postgres + backend + nginx SPA, one command, README |
 
+## Phase 8 — Hardening (`phase-8-hardening/`)
+
+| # | Ticket | Delivers |
+|---|---|---|
+| 34 | [HttpOnly refresh cookie](phase-8-hardening/34-httponly-refresh-cookie.md) | Refresh token out of `localStorage` into an `HttpOnly` cookie; access token in memory only |
+
 ## Conventions these tickets follow
 
 - **Implemented** tests (unit / integration / repository / component) are written by the developer agents.
 - **Verified at review time** (E2E, stress) is executed live by `/task` against the running stack —
   no Playwright specs, Gatling simulations or load scripts land in the repo. Backend tickets are
   verified through Swagger UI (ticket 11); the SPA gets real browser E2E from ticket 26 onward.
-- Stress lines appear only where a concurrency invariant exists: 05, 08, 10, 12, 15, 17, 20, 22, 28, 29, 30.
+- Stress lines appear only where a concurrency invariant exists: 05, 08, 10, 12, 15, 17, 20, 22, 28, 29, 30, 34.
