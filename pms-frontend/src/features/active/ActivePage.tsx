@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { listActiveParkingSessions } from "../../api";
 import type { ParkingSessionResponse } from "../../api";
 import { formatSofiaDateTime } from "../../shared/formatting/sofiaDateTime";
+import PaymentSection from "../sessions/PaymentSection";
 import { endSessionIdempotently, mapEndSessionError } from "./endSession";
 import type { EndSessionResult } from "./endSession";
 import { formatElapsedDuration, useElapsedSeconds } from "./useElapsedSeconds";
@@ -26,7 +27,7 @@ interface ActiveSessionCardProps {
   onEnded: (sessionId: number, result: EndSessionResult) => void;
 }
 
-/** One running (or just-ended) parking, with its own elapsed timer and End action. */
+/** One running (or just-ended) parking: an elapsed timer and End while it runs, then the bill and Pay. */
 function ActiveSessionCard({ session, alreadyEnded, onEnded }: ActiveSessionCardProps) {
   const elapsedSeconds = useElapsedSeconds(session.startedAt);
   const isEnded = session.endedAt !== null;
@@ -77,6 +78,7 @@ function ActiveSessionCard({ session, alreadyEnded, onEnded }: ActiveSessionCard
           <p className="active-page__amount">
             Amount: {session.amount !== null ? formatAmount(session.amount) : "—"}
           </p>
+          <PaymentSection sessionId={session.id} />
         </div>
       )}
     </li>

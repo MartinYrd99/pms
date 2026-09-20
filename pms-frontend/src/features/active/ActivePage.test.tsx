@@ -40,6 +40,13 @@ const sessionTwo = {
   paymentStatus: null,
 };
 
+function notFoundPaymentResponse(): Response {
+  return jsonResponse(
+    { code: "validation.payment.not-found", message: "No payment exists for the given parking session." },
+    404,
+  );
+}
+
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
@@ -115,6 +122,9 @@ describe("ActivePage", () => {
       if (url.endsWith("/parking-sessions/active") && method === "GET") {
         return jsonResponse([sessionOne]);
       }
+      if (url.endsWith("/parking-sessions/1/payment") && method === "GET") {
+        return notFoundPaymentResponse();
+      }
       if (url.endsWith("/parking-sessions/1/end") && method === "POST") {
         return jsonResponse({ ...sessionOne, endedAt: "2026-09-20T10:30:00Z", amount: 2 });
       }
@@ -128,6 +138,7 @@ describe("ActivePage", () => {
     expect(await screen.findByText("Ended 20/09/2026, 13:30:00")).toBeInTheDocument();
     expect(screen.getByText("Amount: 2.00")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /end parking/i })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Pay" })).toBeInTheDocument();
     expect(screen.queryByText(/already been ended/i)).not.toBeInTheDocument();
 
     // A later refetch (e.g. window focus) must not make the just-shown bill disappear.
@@ -149,6 +160,9 @@ describe("ActivePage", () => {
       if (url.endsWith("/parking-sessions/active") && method === "GET") {
         return jsonResponse([sessionOne]);
       }
+      if (url.endsWith("/parking-sessions/1/payment") && method === "GET") {
+        return notFoundPaymentResponse();
+      }
       if (url.endsWith("/parking-sessions/1/end") && method === "POST") {
         return jsonResponse(
           {
@@ -169,6 +183,7 @@ describe("ActivePage", () => {
     expect(await screen.findByText("Ended 20/09/2026, 13:30:00")).toBeInTheDocument();
     expect(screen.getByText("Amount: 2.00")).toBeInTheDocument();
     expect(screen.getByText(/this parking had already been ended/i)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Pay" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     // A later refetch (e.g. window focus) must not make the just-shown bill disappear.
@@ -178,5 +193,51 @@ describe("ActivePage", () => {
 
     expect(screen.getByText("Ended 20/09/2026, 13:30:00")).toBeInTheDocument();
     expect(screen.getByText("Amount: 2.00")).toBeInTheDocument();
+  });
+
+  it("tapping Pay on the just-ended card posts the payment once and shows the pending state without leaving /active", async () => {
+    const user = userEvent.setup();
+
+    let postPaymentCalls = 0;
+    stubAuthenticatedFetch(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/parking-sessions/active") && method === "GET") {
+        return jsonResponse([sessionOne]);
+      }
+      if (url.endsWith("/parking-sessions/1/payment") && method === "GET") {
+        return notFoundPaymentResponse();
+      }
+      if (url.endsWith("/parking-sessions/1/end") && method === "POST") {
+        return jsonResponse({ ...sessionOne, endedAt: "2026-09-20T10:30:00Z", amount: 2 });
+      }
+      if (url.endsWith("/parking-sessions/1/payment") && method === "POST") {
+        postPaymentCalls += 1;
+        return jsonResponse(
+          {
+            id: 100,
+            sessionId: 1,
+            amount: 2,
+            status: "PENDING",
+            createdAt: "2026-09-20T10:30:01Z",
+            settledAt: null,
+          },
+          201,
+        );
+      }
+      throw new Error(`Unexpected request: ${method} ${url}`);
+    });
+
+    renderActivePage();
+
+    await user.click(await screen.findByRole("button", { name: /end parking/i }));
+    await user.click(await screen.findByRole("button", { name: "Pay" }));
+
+    expect(await screen.findByText("Payment pending…")).toBeInTheDocument();
+    expect(postPaymentCalls).toBe(1);
+    // The bill and its card stay put: paying never navigates away from the home screen.
+    expect(screen.getByText("Amount: 2.00")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /active parking/i })).toBeInTheDocument();
   });
 });

@@ -68,3 +68,7 @@
 .active-page__amount {
   font-weight: 600;
 }
+
+.active-page__ended .payment-section {
+  margin-top: 0.75rem;
+}
