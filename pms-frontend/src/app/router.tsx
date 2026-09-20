@@ -3,6 +3,7 @@ import type { RouteObject } from "react-router";
 import ActivePage from "../features/active/ActivePage";
 import LoginPage from "../features/auth/LoginPage";
 import RegisterPage from "../features/auth/RegisterPage";
+import HistoryPage from "../features/history/HistoryPage";
 import ParkPage from "../features/parking/ParkPage";
 import SessionDetailPage from "../features/sessions/SessionDetailPage";
 import VehiclesPage from "../features/vehicles/VehiclesPage";
@@ -24,6 +25,7 @@ export const routes: RouteObject[] = [
           { path: "active", element: <ActivePage /> },
           { path: "vehicles", element: <VehiclesPage /> },
           { path: "park", element: <ParkPage /> },
+          { path: "history", element: <HistoryPage /> },
           { path: "sessions/:id", element: <SessionDetailPage /> },
         ],
       },

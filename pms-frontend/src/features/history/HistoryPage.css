@@ -1,0 +1,45 @@
+.history-page {
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+.history-page__status {
+  margin-bottom: 1.5rem;
+}
+
+.history-page__error {
+  color: #b00020;
+}
+
+.history-page__table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+}
+
+.history-page__table th,
+.history-page__table td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.history-page__pagination {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.history-page__pagination button {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+}
+
+.history-page__pagination button:focus-visible {
+  outline: 2px solid #0b5fff;
+  outline-offset: 2px;
+}
+
+.history-page__page-indicator {
+  color: #444;
+}

@@ -40,6 +40,7 @@ function AppShell() {
           <Link to="/active">Active parking</Link>
           <Link to="/park">Start parking</Link>
           <Link to="/vehicles">Vehicles</Link>
+          <Link to="/history">History</Link>
         </nav>
       )}
       <main className="app-shell__main">
