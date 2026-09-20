@@ -5,6 +5,9 @@
 }
 
 .app-shell__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 1rem;
   background: #0b5fff;
   color: #fff;
@@ -13,6 +16,20 @@
 .app-shell__header h1 {
   margin: 0;
   font-size: 1.25rem;
+}
+
+.app-shell__logout {
+  background: transparent;
+  border: 1px solid #fff;
+  color: #fff;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.app-shell__logout:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 .app-shell__main {

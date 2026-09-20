@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentProps } from "react";
 import { RouterProvider } from "react-router";
+import { AuthProvider } from "../shared/auth/AuthContext";
 import { queryClient } from "./queryClient";
 import { router } from "./router";
 
@@ -13,7 +14,9 @@ type AppProps = {
 function App({ router: routerProp = router }: AppProps = {}) {
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={routerProp} />
+      <AuthProvider>
+        <RouterProvider router={routerProp} />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

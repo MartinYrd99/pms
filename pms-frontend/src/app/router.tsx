@@ -1,11 +1,24 @@
 import { createBrowserRouter } from "react-router";
-import AppShell from "../shared/layout/AppShell";
+import type { RouteObject } from "react-router";
+import LoginPage from "../features/auth/LoginPage";
+import RegisterPage from "../features/auth/RegisterPage";
 import HomePage from "../features/home/HomePage";
+import AppShell from "../shared/layout/AppShell";
+import AuthGuard from "../shared/auth/AuthGuard";
 
-export const router = createBrowserRouter([
+export const routes: RouteObject[] = [
+  { path: "/login", element: <LoginPage /> },
+  { path: "/register", element: <RegisterPage /> },
   {
     path: "/",
-    element: <AppShell />,
-    children: [{ index: true, element: <HomePage /> }],
+    element: <AuthGuard />,
+    children: [
+      {
+        element: <AppShell />,
+        children: [{ index: true, element: <HomePage /> }],
+      },
+    ],
   },
-]);
+];
+
+export const router = createBrowserRouter(routes);

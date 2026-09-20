@@ -1,0 +1,39 @@
+.auth-form {
+  max-width: 24rem;
+  margin: 0 auto;
+}
+
+.auth-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.auth-form__field input {
+  padding: 0.5rem;
+  font-size: 1rem;
+}
+
+.auth-form__field input:focus-visible {
+  outline: 2px solid #0b5fff;
+  outline-offset: 1px;
+}
+
+.auth-form__notice {
+  color: #0b5fff;
+}
+
+.auth-form__error {
+  color: #b00020;
+}
+
+.auth-form button[type="submit"] {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+}
+
+.auth-form button[type="submit"]:focus-visible {
+  outline: 2px solid #0b5fff;
+  outline-offset: 1px;
+}
