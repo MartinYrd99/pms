@@ -1,0 +1,43 @@
+.park-page {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.park-page__status {
+  margin-bottom: 1.5rem;
+}
+
+.park-page__error {
+  color: #b00020;
+}
+
+.park-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.park-form__field select {
+  padding: 0.5rem;
+  font-size: 1rem;
+}
+
+.park-form__field select:focus-visible {
+  outline: 2px solid #0b5fff;
+  outline-offset: 1px;
+}
+
+.park-form__error {
+  color: #b00020;
+}
+
+.park-form button[type="submit"] {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+}
+
+.park-form button[type="submit"]:focus-visible {
+  outline: 2px solid #0b5fff;
+  outline-offset: 2px;
+}

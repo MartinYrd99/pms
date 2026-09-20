@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from "react-router";
+import { Link, Outlet, useNavigate } from "react-router";
 import { logout } from "../../api";
 import { useAuth } from "../auth/AuthContext";
 import "./AppShell.css";
@@ -35,6 +35,12 @@ function AppShell() {
           </button>
         )}
       </header>
+      {status === "authenticated" && (
+        <nav className="app-shell__nav">
+          <Link to="/park">Start parking</Link>
+          <Link to="/vehicles">Vehicles</Link>
+        </nav>
+      )}
       <main className="app-shell__main">
         <Outlet />
       </main>

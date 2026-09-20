@@ -1,0 +1,35 @@
+.session-detail-page {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.session-detail-page__status {
+  margin-bottom: 1.5rem;
+}
+
+.session-detail-page__error {
+  color: #b00020;
+}
+
+.session-detail-page__reason {
+  background: #fff4e5;
+  border: 1px solid #f0ad4e;
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.session-detail-page__details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 1rem;
+  row-gap: 0.5rem;
+}
+
+.session-detail-page__details dt {
+  font-weight: 600;
+}
+
+.session-detail-page__details dd {
+  margin: 0;
+}

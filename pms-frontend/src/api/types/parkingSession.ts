@@ -34,11 +34,15 @@ export interface ParkingHistoryQuery {
   size?: number;
 }
 
-/** 409 body from starting a session: the vehicle already has this other session blocking it. */
+/**
+ * 409 body from starting a session: the vehicle already has this other session blocking it. The id
+ * is null when two starts for the same vehicle race each other — the loser trips the database's
+ * unique constraint before it ever loads the winning session, so the id is unknown at that point.
+ */
 export interface SessionConflictResponse {
   code: string;
   message: string;
-  blockingSessionId: number;
+  blockingSessionId: number | null;
 }
 
 /** 409 body from ending a session that was already ended: the session as it now stands. */
