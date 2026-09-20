@@ -15,7 +15,6 @@ import com.pms.zone.core.TariffRepository;
 import com.pms.zone.core.Zone;
 import com.pms.zone.core.ZoneRepository;
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -24,21 +23,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.TestPropertySource;
 
 /**
- * Verifies the scheduler's drain loop does not reclaim a payment it already attempted within the
- * same run: with a provider forced to decline every charge, one call to {@code settleDuePayments}
- * must leave the payment {@code PENDING} with {@code attempts = 1}, not silently burn through all
- * 3 attempts in a single tick.
+ * Verifies the guarded expiry sweep: a payment stuck {@code PENDING} past the configured age is
+ * moved to {@code FAILED} without ever stamping its session paid, a younger {@code PENDING}
+ * payment is left untouched, and an already-resolved {@code COMPLETED} payment is never touched
+ * regardless of age.
  */
 @SpringBootTest
-@TestPropertySource(properties = "pms.payment.simulator.fail=true")
-class PaymentSettlementSchedulerDrainTest extends AbstractPostgresIT {
+class PaymentExpiryServiceTest extends AbstractPostgresIT {
     private static final Instant NOW = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
     @Autowired
-    private PaymentSettlementService paymentSettlementService;
+    private PaymentExpiryService paymentExpiryService;
 
     @Autowired
     private PaymentRepository paymentRepository;
@@ -62,34 +59,51 @@ class PaymentSettlementSchedulerDrainTest extends AbstractPostgresIT {
     private TariffRepository tariffRepository;
 
     @Test
-    void oneSchedulerRunDoesNotReclaimThePaymentItJustAttempted() {
-        clearLeftoverPendingPayments();
-
+    void expiresAStalePendingPaymentButLeavesAYoungOneAlone() {
         User owner = createUser("owner");
-        ParkingSession session = endedSession(owner);
+        ParkingSession staleSession = endedSession(owner);
+        ParkingSession youngSession = endedSession(owner);
 
-        Payment payment = paymentRepository.save(new Payment()
-                .setSessionId(session.getId())
+        Payment stale = paymentRepository.save(new Payment()
+                .setSessionId(staleSession.getId())
                 .setAmount(new BigDecimal("6.00"))
                 .setStatus(PaymentStatus.PENDING)
-                .setCreatedAt(Instant.now().minusSeconds(10)));
+                .setCreatedAt(Instant.now().minus(Duration.ofMinutes(16))));
 
-        new PaymentSettlementScheduler(paymentSettlementService, new SettlementLivenessTracker(Clock.systemUTC()), 50).settleDuePayments();
+        Payment young = paymentRepository.save(new Payment()
+                .setSessionId(youngSession.getId())
+                .setAmount(new BigDecimal("6.00"))
+                .setStatus(PaymentStatus.PENDING)
+                .setCreatedAt(Instant.now().minus(Duration.ofMinutes(1))));
 
-        Payment reloaded = paymentRepository.findById(payment.getId()).orElseThrow();
-        assertThat(reloaded.getStatus()).isEqualTo(PaymentStatus.PENDING);
-        assertThat(reloaded.getAttempts()).isEqualTo(1);
-        assertThat(parkingSessionRepository.findById(session.getId()).orElseThrow().getPaidAt()).isNull();
+        paymentExpiryService.expireStalePending();
+
+        Payment expiredStale = paymentRepository.findById(stale.getId()).orElseThrow();
+        assertThat(expiredStale.getStatus()).isEqualTo(PaymentStatus.FAILED);
+        assertThat(parkingSessionRepository.findById(staleSession.getId()).orElseThrow().getPaidAt()).isNull();
+
+        Payment untouchedYoung = paymentRepository.findById(young.getId()).orElseThrow();
+        assertThat(untouchedYoung.getStatus()).isEqualTo(PaymentStatus.PENDING);
     }
 
-    /**
-     * The claim query is not session-scoped; a {@code PENDING} row left behind by another test
-     * sharing this Postgres container would otherwise be claimed ahead of this test's own payment.
-     */
-    private void clearLeftoverPendingPayments() {
-        paymentRepository.findAll().stream()
-                .filter(payment -> payment.getStatus() == PaymentStatus.PENDING)
-                .forEach(payment -> paymentRepository.save(payment.setStatus(PaymentStatus.FAILED)));
+    @Test
+    void neverTouchesAnAlreadyCompletedPaymentRegardlessOfAge() {
+        User owner = createUser("owner");
+        ParkingSession session = endedSession(owner);
+        Instant settledAt = Instant.now().minus(Duration.ofMinutes(20)).truncatedTo(ChronoUnit.MICROS);
+
+        Payment completed = paymentRepository.save(new Payment()
+                .setSessionId(session.getId())
+                .setAmount(new BigDecimal("6.00"))
+                .setStatus(PaymentStatus.COMPLETED)
+                .setCreatedAt(Instant.now().minus(Duration.ofMinutes(20)))
+                .setSettledAt(settledAt));
+
+        paymentExpiryService.expireStalePending();
+
+        Payment untouched = paymentRepository.findById(completed.getId()).orElseThrow();
+        assertThat(untouched.getStatus()).isEqualTo(PaymentStatus.COMPLETED);
+        assertThat(untouched.getSettledAt()).isEqualTo(settledAt);
     }
 
     private ParkingSession endedSession(User owner) {

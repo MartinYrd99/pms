@@ -25,5 +25,7 @@ public abstract class AbstractPostgresIT {
         registry.add("spring.flyway.user", POSTGRES::getUsername);
         registry.add("spring.flyway.password", POSTGRES::getPassword);
         registry.add("pms.payment.settlement.enabled", () -> "false");
+        registry.add("pms.payment.expiry.enabled", () -> "false");
+        registry.add("pms.payment.settlement.staleness-threshold-ms", () -> "999999999999");
     }
 }

@@ -61,4 +61,17 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             WHERE id = :id AND status = 'PENDING'
             """, nativeQuery = true)
     int incrementAttemptsIfPending(@Param("id") Long id, @Param("maxAttempts") int maxAttempts);
+
+    /**
+     * Expires payments stuck {@code PENDING} past the cutoff, guarded on {@code status = 'PENDING'}
+     * so a {@code COMPLETED} or already-{@code FAILED} payment, however old, is never touched; this
+     * never writes {@code parking_sessions.paid_at} and never deletes a row.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query(value = """
+            UPDATE payments
+            SET status = 'FAILED'
+            WHERE status = 'PENDING' AND created_at < :cutoff
+            """, nativeQuery = true)
+    int expirePendingOlderThan(@Param("cutoff") Instant cutoff);
 }

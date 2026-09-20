@@ -22,12 +22,15 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(prefix = "pms.payment.settlement", name = "enabled", havingValue = "true", matchIfMissing = true)
 class PaymentSettlementScheduler {
     private final PaymentSettlementService paymentSettlementService;
+    private final SettlementLivenessTracker settlementLivenessTracker;
     private final int maxPerRun;
 
     PaymentSettlementScheduler(
             PaymentSettlementService paymentSettlementService,
+            SettlementLivenessTracker settlementLivenessTracker,
             @Value("${pms.payment.settlement.max-per-run:50}") int maxPerRun) {
         this.paymentSettlementService = paymentSettlementService;
+        this.settlementLivenessTracker = settlementLivenessTracker;
         this.maxPerRun = maxPerRun;
     }
 
@@ -40,6 +43,7 @@ class PaymentSettlementScheduler {
                 Optional<Payment> attempted = paymentSettlementService.settleNextPending(excludedPaymentIds);
 
                 if (attempted.isEmpty()) {
+                    settlementLivenessTracker.recordSuccess();
                     return;
                 }
 
@@ -56,5 +60,7 @@ class PaymentSettlementScheduler {
                 return;
             }
         }
+
+        settlementLivenessTracker.recordSuccess();
     }
 }
