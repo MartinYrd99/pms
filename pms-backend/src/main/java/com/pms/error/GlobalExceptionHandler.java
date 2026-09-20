@@ -48,18 +48,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleBadRequest(IllegalArgumentException ex) {
+        log.info("Answering 400 for {}: {}", ex.getClass().getSimpleName(), ex.getMessage());
+
         return resolveOrFallback(ex, REQUEST_INVALID_CODE);
     }
 
     @ExceptionHandler(IllegalStateException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleConflict(IllegalStateException ex) {
+        log.info("Answering 409 for {}: {}", ex.getClass().getSimpleName(), ex.getMessage());
+
         return resolveOrFallback(ex, CONFLICT_CODE);
     }
 
     @ExceptionHandler(UnsettledSessionException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public SessionConflictResponse handleUnsettledSession(UnsettledSessionException ex) {
+        log.info("Answering 409: the vehicle still has the unsettled session {}", ex.getBlockingSessionId());
+
         ErrorResponse error = resolveOrFallback(ex, CONFLICT_CODE);
 
         return new SessionConflictResponse(error.code(), error.message(), ex.getBlockingSessionId());
@@ -68,6 +74,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(SessionAlreadyEndedException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public SessionAlreadyEndedResponse handleSessionAlreadyEnded(SessionAlreadyEndedException ex) {
+        log.info("Answering 409: the session has already been ended");
+
         ErrorResponse error = resolveOrFallback(ex, CONFLICT_CODE);
 
         return new SessionAlreadyEndedResponse(error.code(), error.message(), ParkingSessionResponse.from(ex.getEndedSession()));
@@ -76,24 +84,32 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(EntityNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleNotFound(EntityNotFoundException ex) {
+        log.info("Answering 404: {}", ex.getMessage());
+
         return resolveOrFallback(ex, NOT_FOUND_CODE);
     }
 
     @ExceptionHandler(ForbiddenException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ErrorResponse handleForbidden(ForbiddenException ex) {
+        log.info("Answering 403: {}", ex.getMessage());
+
         return resolveOrFallback(ex, FORBIDDEN_CODE);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ErrorResponse handleAccessDenied(AccessDeniedException ex) {
+        log.info("Answering 403 for a denied access: {}", ex.getMessage());
+
         return build(FORBIDDEN_CODE);
     }
 
     @ExceptionHandler(AuthenticationException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse handleUnauthorized(AuthenticationException ex) {
+        log.info("Answering 401 for a failed authentication: {}", ex.getMessage());
+
         return build(UNAUTHORIZED_CODE);
     }
 
@@ -103,6 +119,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         String detail = ex.getConstraintViolations().stream()
                 .map(violation -> "%s %s".formatted(violation.getPropertyPath(), violation.getMessage()))
                 .collect(Collectors.joining("; "));
+
+        log.info("Answering 400 for a constraint violation: {}", detail);
 
         return buildWithDetail(REQUEST_INVALID_CODE, detail);
     }
@@ -127,6 +145,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
             return new ResponseEntity<>(build(INTERNAL_ERROR_CODE), headers, statusCode);
         }
+
+        log.info("Answering {} for {}", statusCode.value(), ex.getClass().getSimpleName());
 
         ErrorResponse errorResponse = ex instanceof MethodArgumentNotValidException manve
                 ? buildWithDetail(REQUEST_INVALID_CODE, fieldDetail(manve))

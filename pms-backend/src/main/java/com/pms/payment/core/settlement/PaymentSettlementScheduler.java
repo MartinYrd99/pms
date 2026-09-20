@@ -44,6 +44,7 @@ class PaymentSettlementScheduler {
                 Optional<Payment> attempted = paymentSettlementService.settleNextPending(excludedPaymentIds);
 
                 if (attempted.isEmpty()) {
+                    logRunFinished(excludedPaymentIds.size());
                     settlementLivenessTracker.recordSuccess();
                     return;
                 }
@@ -62,6 +63,14 @@ class PaymentSettlementScheduler {
             }
         }
 
+        log.info("Settlement run hit the per-run cap of {} payment(s); the rest waits for the next tick", maxPerRun);
+
         settlementLivenessTracker.recordSuccess();
+    }
+
+    private void logRunFinished(int attempted) {
+        if (attempted > 0) {
+            log.info("Settlement run attempted {} payment(s) and drained the queue", attempted);
+        }
     }
 }

@@ -7,6 +7,7 @@ import com.pms.zone.core.tariff.Tariff;
 import com.pms.zone.response.ZoneResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/zones")
+@Slf4j
 @RequiredArgsConstructor
 public class ZoneController {
     private final ZoneService zoneService;
@@ -22,6 +24,8 @@ public class ZoneController {
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
     public List<ZoneResponse> listActive() {
+        log.info("GET /api/v1/zones");
+
         return zoneService.listActiveZones().stream().map(this::toResponse).toList();
     }
 

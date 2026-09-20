@@ -3,6 +3,7 @@ package com.pms.payment.core.settlement;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
  * silently blocked.
  */
 @Component("settlement")
+@Slf4j
 public class SettlementHealthIndicator implements HealthIndicator {
     private final SettlementLivenessTracker settlementLivenessTracker;
     private final Clock clock;
@@ -32,7 +34,16 @@ public class SettlementHealthIndicator implements HealthIndicator {
     @Override
     public Health health() {
         Instant lastSuccessfulRun = settlementLivenessTracker.lastSuccessfulRun();
-        Health.Builder builder = isStale(lastSuccessfulRun) ? Health.down() : Health.up();
+        boolean stale = isStale(lastSuccessfulRun);
+
+        if (stale) {
+            log.warn("Reporting settlement DOWN: the last successful run at {} is older than {}",
+                    lastSuccessfulRun, stalenessThreshold);
+        } else {
+            log.info("Reporting settlement UP; last successful run at {}", lastSuccessfulRun);
+        }
+
+        Health.Builder builder = stale ? Health.down() : Health.up();
 
         return builder.withDetail("lastSuccessfulRun", lastSuccessfulRun).build();
     }

@@ -9,10 +9,12 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ZoneService {
@@ -32,9 +34,14 @@ public class ZoneService {
                 .stream()
                 .collect(Collectors.toMap(Tariff::getZoneId, Function.identity()));
 
-        return activeZones.stream()
+        List<ZoneWithCurrentTariff> offered = activeZones.stream()
                 .map(zone -> new ZoneWithCurrentTariff(zone, currentTariffsByZoneId.get(zone.getId())))
                 .filter(entry -> nonNull(entry.tariff()))
                 .toList();
+
+        log.info("Offering {} of {} active zone(s); {} carried no current tariff",
+                offered.size(), activeZones.size(), activeZones.size() - offered.size());
+
+        return offered;
     }
 }

@@ -33,7 +33,11 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
 
     public User register(String username, String rawPassword) {
+        log.info("Registering username '{}'", username);
+
         if (userRepository.existsByUsername(username)) {
+            log.info("Registration refused: username '{}' is already taken", username);
+
             throw new IllegalStateException(USERNAME_TAKEN_CODE);
         }
 
@@ -42,8 +46,14 @@ public class AuthService {
                 .setPasswordHash(passwordEncoder.encode(rawPassword));
 
         try {
-            return userRepository.save(user);
+            User saved = userRepository.save(user);
+
+            log.info("Created user {} with username '{}'", saved.getId(), username);
+
+            return saved;
         } catch (DataIntegrityViolationException e) {
+            log.info("Registration of username '{}' lost the race for the unique username index", username);
+
             throw new IllegalStateException(USERNAME_TAKEN_CODE);
         }
     }
@@ -55,16 +65,22 @@ public class AuthService {
      * it does not — so both cases pay the same cost before throwing the same exception.
      */
     public AuthTokens login(String username, String rawPassword) {
+        log.info("Authenticating username '{}'", username);
+
         User user = userRepository.findByUsername(username).orElse(null);
         String passwordHash = isNull(user) ? DUMMY_PASSWORD_HASH : user.getPasswordHash();
         boolean passwordMatches = passwordEncoder.matches(rawPassword, passwordHash);
 
         if (isNull(user) || !passwordMatches) {
+            log.info("Authentication failed for username '{}'", username);
+
             throw new BadCredentialsException("Invalid username or password");
         }
 
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = refreshTokenService.issue(user);
+
+        log.info("Authenticated user {}; issued a new access/refresh pair", user.getId());
 
         return new AuthTokens(accessToken, refreshToken);
     }
@@ -77,12 +93,16 @@ public class AuthService {
     @Transactional
     public AuthTokens refresh(String rawRefreshToken) {
         if (isNull(rawRefreshToken)) {
+            log.info("Refresh refused: no refresh token presented");
+
             throw new BadCredentialsException("Invalid or expired refresh token");
         }
 
         User user = refreshTokenService.rotate(rawRefreshToken);
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = refreshTokenService.issue(user);
+
+        log.info("Rotated the refresh token of user {}", user.getId());
 
         return new AuthTokens(accessToken, refreshToken);
     }
@@ -94,8 +114,12 @@ public class AuthService {
     @Transactional
     public void logout(String rawRefreshToken) {
         if (isNull(rawRefreshToken)) {
+            log.info("Logout with no refresh token presented; nothing to revoke");
+
             return;
         }
+
+        log.info("Revoking the presented refresh token");
 
         refreshTokenService.revoke(rawRefreshToken);
     }

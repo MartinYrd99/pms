@@ -1,5 +1,6 @@
 package com.pms.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -12,11 +13,15 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@Slf4j
 public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder,
             RestAuthenticationEntryPoint restAuthenticationEntryPoint) throws Exception {
+        log.info("Configuring a stateless security filter chain; every endpoint outside actuator health/info, "
+                + "the OpenAPI document and /api/v1/auth/** requires a bearer access token");
+
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(handling -> handling.authenticationEntryPoint(restAuthenticationEntryPoint))
@@ -41,6 +46,8 @@ public class SecurityConfig {
      */
     @Bean
     PasswordEncoder passwordEncoder() {
+        log.info("Using BCrypt for password hashing");
+
         return new BCryptPasswordEncoder();
     }
 }

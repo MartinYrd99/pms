@@ -2,11 +2,13 @@ package com.pms.vehicle.core;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional
 public class VehicleService {
@@ -16,7 +18,11 @@ public class VehicleService {
 
     @Transactional(readOnly = true)
     public List<Vehicle> listOwnedBy(Long userId) {
-        return vehicleRepository.findByUserId(userId);
+        List<Vehicle> vehicles = vehicleRepository.findByUserId(userId);
+
+        log.info("Listed {} vehicle(s) owned by user {}", vehicles.size(), userId);
+
+        return vehicles;
     }
 
     /**
@@ -26,7 +32,11 @@ public class VehicleService {
      * caught here and mapped to the same conflict.
      */
     public Vehicle register(Long userId, String plate, String brand, String model) {
+        log.info("Registering plate '{}' for user {}", plate, userId);
+
         if (vehicleRepository.existsByPlate(plate)) {
+            log.info("Registration refused: plate '{}' is already taken", plate);
+
             throw new IllegalStateException(PLATE_TAKEN_CODE);
         }
 
@@ -37,8 +47,14 @@ public class VehicleService {
                 .setModel(model);
 
         try {
-            return vehicleRepository.save(vehicle);
+            Vehicle saved = vehicleRepository.save(vehicle);
+
+            log.info("Created vehicle {} with plate '{}' for user {}", saved.getId(), plate, userId);
+
+            return saved;
         } catch (DataIntegrityViolationException e) {
+            log.info("Registration of plate '{}' lost the race for the unique plate index", plate);
+
             throw new IllegalStateException(PLATE_TAKEN_CODE);
         }
     }

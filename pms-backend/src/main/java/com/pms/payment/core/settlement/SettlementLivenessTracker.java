@@ -3,6 +3,7 @@ package com.pms.payment.core.settlement;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReference;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
  * as one that is already ticking, instead of being reported as dead before its first tick.
  */
 @Component
+@Slf4j
 public class SettlementLivenessTracker {
     private final Clock clock;
     private final AtomicReference<Instant> lastSuccessfulRun;
@@ -19,6 +21,8 @@ public class SettlementLivenessTracker {
     public SettlementLivenessTracker(Clock clock) {
         this.clock = clock;
         this.lastSuccessfulRun = new AtomicReference<>(clock.instant());
+
+        log.info("Seeding settlement liveness at {}", lastSuccessfulRun.get());
     }
 
     /**
@@ -26,7 +30,9 @@ public class SettlementLivenessTracker {
      * settle.
      */
     void recordSuccess() {
-        lastSuccessfulRun.set(clock.instant());
+        Instant now = clock.instant();
+
+        lastSuccessfulRun.set(now);
     }
 
     public Instant lastSuccessfulRun() {

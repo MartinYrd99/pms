@@ -48,6 +48,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     throw new BadJwtException("Access token carries no subject");
                 }
 
+                log.info("Authenticated {} {} as user {}", request.getMethod(), request.getRequestURI(), subject);
+
                 SecurityContextHolder.getContext()
                         .setAuthentication(
                                 new UsernamePasswordAuthenticationToken(
@@ -55,7 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 )
                         );
             } catch (JwtException | NumberFormatException e) {
-                log.debug("Rejecting request with invalid bearer token", e);
+                log.info("Rejecting {} {} presented with an invalid bearer token", request.getMethod(), request.getRequestURI());
 
                 SecurityContextHolder.clearContext();
             }

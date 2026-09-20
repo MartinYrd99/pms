@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * its SHA-256 hash is persisted, so a database leak yields nothing usable.
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional
 public class RefreshTokenService {
@@ -42,6 +44,8 @@ public class RefreshTokenService {
                 .setExpiresAt(now.plus(REFRESH_TOKEN_TTL));
         refreshTokenRepository.save(refreshToken);
 
+        log.info("Issued a refresh token for user {} expiring at {}", user.getId(), refreshToken.getExpiresAt());
+
         return rawToken;
     }
 
@@ -56,12 +60,18 @@ public class RefreshTokenService {
         int claimed = refreshTokenRepository.revokeIfValid(tokenHash, Instant.now(clock));
 
         if (claimed == 0) {
+            log.info("Rotation refused: the presented refresh token is unknown, expired or already revoked");
+
             throw new BadCredentialsException("Invalid or expired refresh token");
         }
 
-        return refreshTokenRepository.findByTokenHashFetchUser(tokenHash)
+        User user = refreshTokenRepository.findByTokenHashFetchUser(tokenHash)
                 .orElseThrow(() -> new IllegalStateException("Refresh token vanished after being claimed"))
                 .getUser();
+
+        log.info("Claimed and revoked the presented refresh token of user {}", user.getId());
+
+        return user;
     }
 
     /**
@@ -69,7 +79,9 @@ public class RefreshTokenService {
      * error surfaces, so logout never reveals whether the presented token was valid.
      */
     public void revoke(String rawToken) {
-        refreshTokenRepository.revokeIfValid(hash(rawToken), Instant.now(clock));
+        int revoked = refreshTokenRepository.revokeIfValid(hash(rawToken), Instant.now(clock));
+
+        log.info("Revoked {} refresh token(s) for the presented value", revoked);
     }
 
     private String generateRawToken() {

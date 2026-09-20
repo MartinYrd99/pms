@@ -3,6 +3,7 @@ package com.pms.payment.core.expiry;
 import com.pms.payment.core.PaymentRepository;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,8 @@ public class PaymentExpiryService {
         this.paymentRepository = paymentRepository;
         this.clock = clock;
         this.expiryAge = Duration.ofMillis(expiryAgeMs);
+
+        log.info("Payments still PENDING after {} will be expired to FAILED", this.expiryAge);
     }
 
     /**
@@ -36,11 +39,11 @@ public class PaymentExpiryService {
      * it flipped; a {@code COMPLETED} or already-{@code FAILED} payment is never touched.
      */
     public void expireStalePending() {
-        int expired = paymentRepository.expirePendingOlderThan(clock.instant().minus(expiryAge));
+        Instant cutoff = clock.instant().minus(expiryAge);
+        int expired = paymentRepository.expirePendingOlderThan(cutoff);
 
         if (expired > 0) {
-            log.info("Expired {} stale PENDING payment(s) to FAILED", expired);
+            log.info("Expired {} PENDING payment(s) created before {} to FAILED", expired, cutoff);
         }
-
     }
 }

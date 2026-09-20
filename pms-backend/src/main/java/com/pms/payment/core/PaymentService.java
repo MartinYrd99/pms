@@ -42,11 +42,16 @@ public class PaymentService {
      * database's partial unique index.
      */
     public PaymentOutcome payFor(Long userId, Long sessionId) {
+        log.info("Recording a payment request from user {} for session {}", userId, sessionId);
+
         ParkingSession session = loadOwnedEndedSession(userId, sessionId);
 
         Optional<Payment> live = paymentRepository.findBySessionIdAndStatusIn(sessionId, LIVE_STATUSES);
 
         if (live.isPresent()) {
+            log.info("Session {} already carries the live payment {} in status {}; handing it back",
+                    sessionId, live.get().getId(), live.get().getStatus());
+
             return new PaymentOutcome(live.get(), false);
         }
 
@@ -57,7 +62,11 @@ public class PaymentService {
                 .setCreatedAt(clock.instant());
 
         try {
-            return new PaymentOutcome(pendingPaymentWriter.insert(pending), true);
+            Payment created = pendingPaymentWriter.insert(pending);
+
+            log.info("Created PENDING payment {} for session {} of {}", created.getId(), sessionId, created.getAmount());
+
+            return new PaymentOutcome(created, true);
         } catch (DataIntegrityViolationException e) {
             log.info("Payment insert for session {} lost the race for the live-payment index; re-reading the winner", sessionId);
 
@@ -74,14 +83,22 @@ public class PaymentService {
      */
     @Transactional(readOnly = true)
     public Payment getPaymentForSession(Long userId, Long sessionId) {
+        log.info("Reading the payment of session {} for user {}", sessionId, userId);
+
         ParkingSession session = parkingSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new EntityNotFoundException(SESSION_NOT_FOUND_CODE));
 
         if (!session.getUserId().equals(userId)) {
+            log.info("Access refused: session {} belongs to user {}, not to user {}", sessionId, session.getUserId(), userId);
+
             throw new ForbiddenException(SESSION_NOT_OWNED_CODE);
         }
 
-        return selectPayment(sessionId).orElseThrow(() -> new EntityNotFoundException(PAYMENT_NOT_FOUND_CODE));
+        Payment payment = selectPayment(sessionId).orElseThrow(() -> new EntityNotFoundException(PAYMENT_NOT_FOUND_CODE));
+
+        log.info("Session {} is watching payment {} in status {}", sessionId, payment.getId(), payment.getStatus());
+
+        return payment;
     }
 
     /**
@@ -94,10 +111,14 @@ public class PaymentService {
             return Map.of();
         }
 
-        return paymentRepository.findBySessionIdIn(sessionIds).stream()
+        Map<Long, PaymentStatus> statuses = paymentRepository.findBySessionIdIn(sessionIds).stream()
                 .collect(Collectors.groupingBy(Payment::getSessionId))
                 .entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> selectAmong(entry.getValue()).getStatus()));
+
+        log.info("Resolved payment statuses for {} of {} requested session(s)", statuses.size(), sessionIds.size());
+
+        return statuses;
     }
 
     private Optional<Payment> selectPayment(Long sessionId) {
@@ -117,10 +138,14 @@ public class PaymentService {
                 .orElseThrow(() -> new EntityNotFoundException(SESSION_NOT_FOUND_CODE));
 
         if (!session.getUserId().equals(userId)) {
+            log.info("Payment refused: session {} belongs to user {}, not to user {}", sessionId, session.getUserId(), userId);
+
             throw new ForbiddenException(SESSION_NOT_OWNED_CODE);
         }
 
         if (isNull(session.getEndedAt())) {
+            log.info("Payment refused: session {} is still active", sessionId);
+
             throw new IllegalStateException(SESSION_ACTIVE_CODE);
         }
 

@@ -7,6 +7,7 @@ import com.pms.payment.core.PaymentRepository;
 import com.pms.payment.core.provider.PaymentProvider;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
@@ -65,7 +66,12 @@ public class PaymentSettlementService {
                 ? paymentRepository.claimNextPending(clock.instant().minus(claimDelay))
                 : paymentRepository.claimNextPending(clock.instant().minus(claimDelay), excludedPaymentIds);
 
-        claimed.ifPresent(this::settle);
+        claimed.ifPresent(payment -> {
+            log.info("Claimed payment {} of session {} for settlement (attempt {} of {})",
+                    payment.getId(), payment.getSessionId(), payment.getAttempts() + 1, MAX_ATTEMPTS);
+
+            settle(payment);
+        });
 
         return claimed;
     }
@@ -80,6 +86,8 @@ public class PaymentSettlementService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     void recordFailedAttempt(Long paymentId) {
+        log.info("Recording a failed settlement attempt for payment {} out of band", paymentId);
+
         paymentRepository.incrementAttemptsIfPending(paymentId, MAX_ATTEMPTS);
     }
 
@@ -88,16 +96,23 @@ public class PaymentSettlementService {
             boolean charged = paymentProvider.charge(payment);
 
             if (charged) {
+                Instant settledAt = clock.instant();
+
                 payment
                         .setAttempts(payment.getAttempts() + 1)
                         .setStatus(PaymentStatus.COMPLETED)
-                        .setSettledAt(clock.instant());
+                        .setSettledAt(settledAt);
 
                 paymentRepository.saveAndFlush(payment);
-                parkingSessionRepository.markPaidIfUnpaid(payment.getSessionId(), clock.instant());
+                int markedPaid = parkingSessionRepository.markPaidIfUnpaid(payment.getSessionId(), settledAt);
+
+                log.info("Settled payment {} of {} at {}; marked {} session(s) paid",
+                        payment.getId(), payment.getAmount(), settledAt, markedPaid);
 
                 return;
             }
+
+            log.info("Provider declined payment {}; recording the attempt (max {})", payment.getId(), MAX_ATTEMPTS);
 
             paymentRepository.incrementAttemptsIfPending(payment.getId(), MAX_ATTEMPTS);
         } catch (RuntimeException e) {

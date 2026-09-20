@@ -16,7 +16,8 @@ class SimulatorPaymentProvider implements PaymentProvider {
 
     @Override
     public boolean charge(Payment payment) {
-        log.debug("Simulating charge for payment {} (forcedFailure={})", payment.getId(), forcedFailure);
+        log.info("Simulating a charge of {} for payment {} (forcedFailure={})",
+                payment.getAmount(), payment.getId(), forcedFailure);
 
         return !forcedFailure;
     }

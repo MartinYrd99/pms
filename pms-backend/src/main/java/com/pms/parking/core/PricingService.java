@@ -4,6 +4,7 @@ import com.pms.zone.core.tariff.Tariff;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
  * hour.
  */
 @Component
+@Slf4j
 public class PricingService {
     private static final long MILLIS_PER_HOUR = 3_600_000L;
 
@@ -23,7 +25,10 @@ public class PricingService {
     private BigDecimal priceHourly(Instant startedAt, Instant endedAt, BigDecimal hourlyRate) {
         long millis = endedAt.toEpochMilli() - startedAt.toEpochMilli();
         long hours = Math.max(1, Math.ceilDiv(millis, MILLIS_PER_HOUR));
+        BigDecimal amount = BigDecimal.valueOf(hours).multiply(hourlyRate).setScale(2, RoundingMode.UNNECESSARY);
 
-        return BigDecimal.valueOf(hours).multiply(hourlyRate).setScale(2, RoundingMode.UNNECESSARY);
+        log.info("Priced a stay of {}ms as {} started hour(s) at {} per hour: {}", millis, hours, hourlyRate, amount);
+
+        return amount;
     }
 }

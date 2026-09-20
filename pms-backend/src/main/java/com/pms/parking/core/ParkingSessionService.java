@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional
 public class ParkingSessionService {
@@ -50,10 +52,14 @@ public class ParkingSessionService {
     private final Clock clock;
 
     public StartedSession start(Long userId, Long vehicleId, Long zoneId) {
+        log.info("Starting a parking session for user {} (vehicle {}, zone {})", userId, vehicleId, zoneId);
+
         Vehicle vehicle = vehicleRepository.findById(vehicleId)
                 .orElseThrow(() -> new EntityNotFoundException(VEHICLE_NOT_FOUND_CODE));
 
         if (!vehicle.getUserId().equals(userId)) {
+            log.info("Start refused: vehicle {} is owned by user {}, not by user {}", vehicleId, vehicle.getUserId(), userId);
+
             throw new ForbiddenException(VEHICLE_NOT_OWNED_CODE);
         }
 
@@ -61,6 +67,8 @@ public class ParkingSessionService {
                 .orElseThrow(() -> new EntityNotFoundException(ZONE_NOT_FOUND_CODE));
 
         if (!zone.isActive()) {
+            log.info("Start refused: zone {} is inactive", zoneId);
+
             throw new IllegalStateException(ZONE_INACTIVE_CODE);
         }
 
@@ -79,13 +87,21 @@ public class ParkingSessionService {
         try {
             session = parkingSessionRepository.save(session);
         } catch (DataIntegrityViolationException e) {
+            log.info("Start for vehicle {} lost the race for the unsettled-session index", vehicleId);
+
             throw new UnsettledSessionException(UNSETTLED_SESSION_CODE, null);
         }
+
+        log.info("Started parking session {} for user {} (vehicle {}, zone {}, tariff {}) at {}",
+                session.getId(), userId, vehicleId, zoneId, tariff.getId(), session.getStartedAt());
 
         return new StartedSession(session, vehicle, zone, null);
     }
 
     private void rejectAsUnsettled(ParkingSession blockingSession) {
+        log.info("Start refused: vehicle {} still has the unsettled session {}",
+                blockingSession.getVehicleId(), blockingSession.getId());
+
         throw new UnsettledSessionException(UNSETTLED_SESSION_CODE, blockingSession.getId());
     }
 
@@ -93,6 +109,8 @@ public class ParkingSessionService {
      * Ends a session and fixes its amount.
      */
     public StartedSession end(Long userId, Long sessionId) {
+        log.info("Ending parking session {} for user {}", sessionId, userId);
+
         ParkingSession session = loadOwnedSession(userId, sessionId);
 
         Tariff tariff = tariffRepository.findById(session.getTariffId())
@@ -103,17 +121,23 @@ public class ParkingSessionService {
         int updated = parkingSessionRepository.endIfActive(sessionId, endedAt, amount);
 
         if (updated == 0) {
+            log.info("End refused: parking session {} has already been ended", sessionId);
+
             ParkingSession alreadyEnded = loadSession(sessionId);
             PaymentStatus paymentStatus = paymentService.statusesBySessionId(List.of(sessionId)).get(sessionId);
 
             throw new SessionAlreadyEndedException(SESSION_ALREADY_ENDED_CODE, loadBundle(alreadyEnded, paymentStatus));
         }
 
+        log.info("Ended parking session {} at {} for an amount of {} (tariff {})", sessionId, endedAt, amount, tariff.getId());
+
         return loadBundle(session.setEndedAt(endedAt).setAmount(amount));
     }
 
     @Transactional(readOnly = true)
     public StartedSession get(Long userId, Long sessionId) {
+        log.info("Reading parking session {} for user {}", sessionId, userId);
+
         ParkingSession session = loadOwnedSession(userId, sessionId);
         PaymentStatus paymentStatus = paymentService.statusesBySessionId(List.of(sessionId)).get(sessionId);
 
@@ -124,6 +148,9 @@ public class ParkingSessionService {
         ParkingSession session = loadSession(sessionId);
 
         if (!session.getUserId().equals(userId)) {
+            log.info("Access refused: parking session {} belongs to user {}, not to user {}",
+                    sessionId, session.getUserId(), userId);
+
             throw new ForbiddenException(SESSION_NOT_OWNED_CODE);
         }
 
@@ -150,7 +177,12 @@ public class ParkingSessionService {
 
     @Transactional(readOnly = true)
     public List<StartedSession> listActive(Long userId) {
-        return bundle(parkingSessionRepository.findByUserIdAndEndedAtIsNullOrderByStartedAtDesc(userId));
+        List<StartedSession> active =
+                bundle(parkingSessionRepository.findByUserIdAndEndedAtIsNullOrderByStartedAtDesc(userId));
+
+        log.info("Listed {} active parking session(s) for user {}", active.size(), userId);
+
+        return active;
     }
 
     /**
@@ -163,6 +195,9 @@ public class ParkingSessionService {
 
         Page<ParkingSession> sessions =
                 parkingSessionRepository.findByUserIdOrderByStartedAtDesc(userId, PageRequest.of(clampedPage, clampedSize));
+
+        log.info("Read parking session history for user {} (page {}, size {}): {} of {} row(s)",
+                userId, clampedPage, clampedSize, sessions.getNumberOfElements(), sessions.getTotalElements());
 
         Map<Long, PaymentStatus> paymentStatuses =
                 paymentService.statusesBySessionId(sessions.getContent().stream().map(ParkingSession::getId).toList());
