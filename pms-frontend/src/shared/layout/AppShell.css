@@ -40,7 +40,24 @@
   border-bottom: 1px solid #d7e2ff;
 }
 
-.app-shell__nav a:focus-visible {
+/* Navigation entries read as buttons so they stay comfortable tap targets instead of inline text. */
+.app-shell__nav-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.8rem;
+  background: #fff;
+  border: 1px solid #0b5fff;
+  border-radius: 0.25rem;
+  color: #0b5fff;
+  text-decoration: none;
+}
+
+.app-shell__nav-link:hover {
+  background: #0b5fff;
+  color: #fff;
+}
+
+.app-shell__nav-link:focus-visible {
   outline: 2px solid #0b5fff;
   outline-offset: 2px;
 }
