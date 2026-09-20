@@ -3,8 +3,8 @@ package com.pms.vehicle.core;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.pms.AbstractPostgresIT;
-import com.pms.auth.core.User;
-import com.pms.auth.core.UserRepository;
+import com.pms.auth.core.user.User;
+import com.pms.auth.core.user.UserRepository;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

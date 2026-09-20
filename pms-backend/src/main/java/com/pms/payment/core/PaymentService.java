@@ -5,7 +5,6 @@ import static java.util.Objects.isNull;
 import com.pms.error.ForbiddenException;
 import com.pms.parking.core.ParkingSession;
 import com.pms.parking.core.ParkingSessionRepository;
-import com.pms.parking.core.PaymentStatus;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Clock;
 import java.util.Collection;

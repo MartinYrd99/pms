@@ -2,8 +2,8 @@ package com.pms.auth;
 
 import com.pms.auth.core.AuthService;
 import com.pms.auth.core.AuthTokens;
-import com.pms.auth.core.RefreshCookieFactory;
-import com.pms.auth.core.User;
+import com.pms.auth.core.token.RefreshCookieFactory;
+import com.pms.auth.core.user.User;
 import com.pms.auth.request.LoginRequest;
 import com.pms.auth.request.RegisterRequest;
 import com.pms.auth.response.AccessTokenResponse;

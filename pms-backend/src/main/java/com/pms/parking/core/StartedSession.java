@@ -1,5 +1,6 @@
 package com.pms.parking.core;
 
+import com.pms.payment.core.PaymentStatus;
 import com.pms.vehicle.core.Vehicle;
 import com.pms.zone.core.Zone;
 

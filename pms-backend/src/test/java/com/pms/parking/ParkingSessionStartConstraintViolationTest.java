@@ -6,18 +6,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.pms.AbstractPostgresIT;
-import com.pms.auth.core.JwtService;
-import com.pms.auth.core.User;
-import com.pms.auth.core.UserRepository;
+import com.pms.auth.core.token.JwtService;
+import com.pms.auth.core.user.User;
+import com.pms.auth.core.user.UserRepository;
 import com.pms.parking.core.ParkingSession;
 import com.pms.parking.core.ParkingSessionRepository;
 import com.pms.parking.request.StartParkingSessionRequest;
 import com.pms.vehicle.core.Vehicle;
 import com.pms.vehicle.core.VehicleRepository;
-import com.pms.zone.core.Tariff;
-import com.pms.zone.core.TariffRepository;
 import com.pms.zone.core.Zone;
 import com.pms.zone.core.ZoneRepository;
+import com.pms.zone.core.tariff.Tariff;
+import com.pms.zone.core.tariff.TariffRepository;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;

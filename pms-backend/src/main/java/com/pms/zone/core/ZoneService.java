@@ -2,6 +2,8 @@ package com.pms.zone.core;
 
 import static java.util.Objects.nonNull;
 
+import com.pms.zone.core.tariff.Tariff;
+import com.pms.zone.core.tariff.TariffRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;

@@ -7,9 +7,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.pms.AbstractPostgresIT;
-import com.pms.auth.core.JwtService;
-import com.pms.auth.core.User;
-import com.pms.auth.core.UserRepository;
+import com.pms.auth.core.token.JwtService;
+import com.pms.auth.core.user.User;
+import com.pms.auth.core.user.UserRepository;
 import com.pms.vehicle.core.Vehicle;
 import com.pms.vehicle.core.VehicleRepository;
 import com.pms.vehicle.request.VehicleRequest;

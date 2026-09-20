@@ -6,11 +6,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.pms.AbstractPostgresIT;
-import com.pms.auth.core.RefreshCookieFactory;
-import com.pms.auth.core.RefreshToken;
-import com.pms.auth.core.RefreshTokenRepository;
-import com.pms.auth.core.User;
-import com.pms.auth.core.UserRepository;
+import com.pms.auth.core.token.RefreshCookieFactory;
+import com.pms.auth.core.token.RefreshToken;
+import com.pms.auth.core.token.RefreshTokenRepository;
+import com.pms.auth.core.user.User;
+import com.pms.auth.core.user.UserRepository;
 import com.pms.auth.request.LoginRequest;
 import com.pms.auth.request.RegisterRequest;
 import jakarta.servlet.http.Cookie;

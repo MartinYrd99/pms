@@ -1,9 +1,9 @@
 package com.pms.zone;
 
-import com.pms.zone.core.Tariff;
 import com.pms.zone.core.Zone;
 import com.pms.zone.core.ZoneService;
 import com.pms.zone.core.ZoneWithCurrentTariff;
+import com.pms.zone.core.tariff.Tariff;
 import com.pms.zone.response.ZoneResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

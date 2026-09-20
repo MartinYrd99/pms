@@ -1,6 +1,6 @@
 package com.pms.parking.core;
 
-import com.pms.zone.core.Tariff;
+import com.pms.zone.core.tariff.Tariff;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;

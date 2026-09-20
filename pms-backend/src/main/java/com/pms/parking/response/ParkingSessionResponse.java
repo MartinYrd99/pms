@@ -1,6 +1,6 @@
 package com.pms.parking.response;
 
-import com.pms.parking.core.PaymentStatus;
+import com.pms.payment.core.PaymentStatus;
 import com.pms.parking.core.StartedSession;
 import java.math.BigDecimal;
 import java.time.Instant;

@@ -7,20 +7,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.pms.AbstractPostgresIT;
-import com.pms.auth.core.JwtService;
-import com.pms.auth.core.User;
-import com.pms.auth.core.UserRepository;
+import com.pms.auth.core.token.JwtService;
+import com.pms.auth.core.user.User;
+import com.pms.auth.core.user.UserRepository;
 import com.pms.parking.core.ParkingSession;
 import com.pms.parking.core.ParkingSessionRepository;
-import com.pms.parking.core.PaymentStatus;
 import com.pms.payment.core.Payment;
 import com.pms.payment.core.PaymentRepository;
+import com.pms.payment.core.PaymentStatus;
 import com.pms.vehicle.core.Vehicle;
 import com.pms.vehicle.core.VehicleRepository;
-import com.pms.zone.core.Tariff;
-import com.pms.zone.core.TariffRepository;
 import com.pms.zone.core.Zone;
 import com.pms.zone.core.ZoneRepository;
+import com.pms.zone.core.tariff.Tariff;
+import com.pms.zone.core.tariff.TariffRepository;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;

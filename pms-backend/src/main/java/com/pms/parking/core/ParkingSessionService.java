@@ -1,13 +1,14 @@
 package com.pms.parking.core;
 
 import com.pms.error.ForbiddenException;
+import com.pms.payment.core.PaymentStatus;
 import com.pms.payment.core.PaymentService;
 import com.pms.vehicle.core.Vehicle;
 import com.pms.vehicle.core.VehicleRepository;
-import com.pms.zone.core.Tariff;
-import com.pms.zone.core.TariffRepository;
 import com.pms.zone.core.Zone;
 import com.pms.zone.core.ZoneRepository;
+import com.pms.zone.core.tariff.Tariff;
+import com.pms.zone.core.tariff.TariffRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.time.Clock;

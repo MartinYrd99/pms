@@ -1,6 +1,5 @@
 package com.pms.payment.core;
 
-import com.pms.parking.core.PaymentStatus;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;

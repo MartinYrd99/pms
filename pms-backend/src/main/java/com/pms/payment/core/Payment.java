@@ -1,6 +1,5 @@
 package com.pms.payment.core;
 
-import com.pms.parking.core.PaymentStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

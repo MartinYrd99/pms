@@ -2,8 +2,8 @@ package com.pms.parking.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.pms.zone.core.RuleType;
-import com.pms.zone.core.Tariff;
+import com.pms.zone.core.tariff.RuleType;
+import com.pms.zone.core.tariff.Tariff;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
