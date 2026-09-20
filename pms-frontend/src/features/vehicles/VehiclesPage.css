@@ -1,0 +1,61 @@
+.vehicles-page {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.vehicles-page__table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+}
+
+.vehicles-page__table th,
+.vehicles-page__table td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.vehicles-page__status {
+  margin-bottom: 1.5rem;
+}
+
+.vehicles-page__error {
+  color: #b00020;
+}
+
+.vehicle-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.vehicle-form__field input {
+  padding: 0.5rem;
+  font-size: 1rem;
+}
+
+.vehicle-form__field input:focus-visible {
+  outline: 2px solid #0b5fff;
+  outline-offset: 1px;
+}
+
+.vehicle-form__field-error {
+  color: #b00020;
+  margin: 0;
+}
+
+.vehicle-form__error {
+  color: #b00020;
+}
+
+.vehicle-form button[type="submit"] {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+}
+
+.vehicle-form button[type="submit"]:focus-visible {
+  outline: 2px solid #0b5fff;
+  outline-offset: 1px;
+}
